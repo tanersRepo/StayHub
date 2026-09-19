@@ -25,3 +25,7 @@ Next.js 16 (App Router, `src/`), TypeScript, Tailwind v4, shadcn/ui (**radix** s
 - Prisma client is generated to `src/generated/prisma` (gitignored); import via `@/generated/prisma/client`. `postinstall` regenerates it.
 - Enum-like columns are Strings (SQLite): Property.type, status, Booking.status, User.role. Keep the allowed values documented in `schema.prisma`.
 - Read `node_modules/next/dist/docs/` when unsure about a Next 16 API before guessing.
+- **Client components must not import from `src/lib/db.ts`, `storage.ts`, or `properties.ts`** (they pull SQLite/`node:fs` into the browser bundle and the route silently fails to build). Client-safe constants live in `src/lib/labels.ts` and `src/lib/media-limits.ts`.
+- Media: `PropertyMedia` holds photos and ≤30 s videos (`kind` IMAGE|VIDEO, `order` 0 = cover). Uploads go through `POST /api/uploads` (route handler — Server Actions cap bodies at 1 MB); duration is verified server-side by `mp4DurationSeconds()`.
+- Pricing: `PricingRule` tiers (minNights → discountPercent) are per property. Always price via `calculatePrice(rate, checkIn, checkOut, rules)`.
+- Host pages live under `src/app/(host)/host/`; every page/action loads properties with `getOwnedProperty()` / `assertOwnsProperty()` from `src/lib/host.ts`.

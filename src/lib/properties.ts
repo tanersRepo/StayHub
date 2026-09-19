@@ -8,7 +8,7 @@ export async function listPublishedProperties(opts: { city?: string; take?: numb
       ...(opts.city ? { city: { contains: opts.city } } : {}),
     },
     include: {
-      images: { orderBy: { order: "asc" }, take: 1 },
+      media: { where: { kind: "IMAGE" }, orderBy: { order: "asc" }, take: 1 },
       roomTypes: { orderBy: { pricePerNight: "asc" }, take: 1, select: { pricePerNight: true } },
       reviews: { select: { rating: true } },
     },
@@ -27,7 +27,7 @@ function toCard(p: {
   city: string;
   country: string;
   currency: string;
-  images: { url: string }[];
+  media: { url: string }[];
   roomTypes: { pricePerNight: number }[];
   reviews: { rating: number }[];
 }) {
@@ -40,29 +40,9 @@ function toCard(p: {
     city: p.city,
     country: p.country,
     currency: p.currency,
-    coverUrl: p.images[0]?.url ?? null,
+    coverUrl: p.media[0]?.url ?? null,
     fromPrice: p.roomTypes[0]?.pricePerNight ?? null,
     rating,
     ratingCount,
   };
 }
-
-export const PROPERTY_TYPE_LABEL: Record<string, string> = {
-  HOTEL: "Hotel",
-  APARTMENT: "Apartment",
-  HOUSE: "House",
-  ROOM: "Private room",
-};
-
-export const AMENITY_LABEL: Record<string, string> = {
-  wifi: "Wi-Fi",
-  kitchen: "Kitchen",
-  air_conditioning: "Air conditioning",
-  washer: "Washer",
-  parking: "Free parking",
-  pool: "Pool",
-  gym: "Gym",
-  breakfast: "Breakfast included",
-  pets_allowed: "Pets allowed",
-  workspace: "Dedicated workspace",
-};

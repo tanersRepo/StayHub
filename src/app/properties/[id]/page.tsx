@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { Bath, BedDouble, Check, MapPin, Star, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/pricing";
-import { AMENITY_LABEL, PROPERTY_TYPE_LABEL } from "@/lib/properties";
+import { AMENITY_LABEL, PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[i
     where: { id, status: "PUBLISHED" },
     include: {
       host: { select: { name: true, createdAt: true } },
-      images: { orderBy: { order: "asc" } },
+      media: { where: { kind: "IMAGE" }, orderBy: { order: "asc" } },
       roomTypes: { orderBy: { order: "asc" } },
       reviews: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
     },
@@ -51,7 +51,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[i
 
       {/* Gallery */}
       <div className="grid gap-2 overflow-hidden rounded-2xl md:grid-cols-4 md:grid-rows-2">
-        {p.images.slice(0, 5).map((img, i) => (
+        {p.media.slice(0, 5).map((img, i) => (
           <div
             key={img.id}
             className={`relative bg-muted ${i === 0 ? "aspect-[4/3] md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-[4/3]"}`}

@@ -85,27 +85,54 @@ model Property {
   amenities    String   @default("[]") // JSON string[]
   checkInTime  String   @default("15:00")
   checkOutTime String   @default("11:00")
+  minNights    Int      @default(1)
   status       String   @default("DRAFT") // DRAFT | PUBLISHED
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  host      User            @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  images    PropertyImage[]
-  roomTypes RoomType[]
-  bookings  Booking[]
-  reviews   Review[]
+  host         User            @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  media        PropertyMedia[]
+  pricingRules PricingRule[]
+  roomTypes    RoomType[]
+  bookings     Booking[]
+  reviews      Review[]
 
   @@index([city])
   @@index([status])
 }
 
-model PropertyImage {
-  id         String @id @default(cuid())
-  propertyId String
-  url        String
-  order      Int    @default(0)
+/**
+ * Photos and short (≤30s) videos of a property. order 0 is the cover.
+ */
+model PropertyMedia {
+  id          String   @id @default(cuid())
+  propertyId  String
+  kind        String   @default("IMAGE") // IMAGE | VIDEO
+  url         String
+  mimeType    String   @default("image/jpeg")
+  sizeBytes   Int      @default(0)
+  durationSec Float? // videos only
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, order])
+}
+
+/**
+ * Length-of-stay discount tier: stays of >= minNights get discountPercent off the nightly subtotal.
+ */
+model PricingRule {
+  id              String   @id @default(cuid())
+  propertyId      String
+  minNights       Int
+  discountPercent Int // 1..90
+  createdAt       DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, minNights])
 }
 
 /**

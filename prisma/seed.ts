@@ -53,7 +53,8 @@ async function main() {
   await db.booking.deleteMany();
   await db.blockedDate.deleteMany();
   await db.roomType.deleteMany();
-  await db.propertyImage.deleteMany();
+  await db.propertyMedia.deleteMany();
+  await db.pricingRule.deleteMany();
   await db.property.deleteMany();
   await db.user.deleteMany();
 
@@ -87,7 +88,9 @@ async function main() {
           lng: c.lng + (Math.random() - 0.5) * 0.04,
           amenities: JSON.stringify(AMENITIES.filter((_, i) => (i + n) % 3 !== 0)),
           status: "PUBLISHED",
-          images: { create: [0, 1, 2, 3].map((i) => ({ url: img(`stay${n}`, i), order: i })) },
+          media: { create: [0, 1, 2, 3].map((i) => ({ kind: "IMAGE", url: img(`stay${n}`, i), order: i })) },
+          minNights: spec.type === "HOUSE" ? 2 : 1,
+          pricingRules: { create: [{ minNights: 7, discountPercent: 10 }, { minNights: 28, discountPercent: 25 }] },
           roomTypes: {
             create: spec.rooms.map((r, i) => ({
               name: r.name, pricePerNight: r.price, maxGuests: r.maxGuests, quantity: r.quantity,

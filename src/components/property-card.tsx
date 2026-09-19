@@ -4,7 +4,8 @@ import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatMoney } from "@/lib/pricing";
-import { PROPERTY_TYPE_LABEL, type PropertyCardData } from "@/lib/properties";
+import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
+import type { PropertyCardData } from "@/lib/properties";
 
 export function PropertyCard({ p }: { p: PropertyCardData }) {
   return (
