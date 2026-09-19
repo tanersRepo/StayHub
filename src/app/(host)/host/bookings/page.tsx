@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatStay } from "@/lib/dates";
 import { requireHost } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/pricing";
@@ -58,7 +58,7 @@ export default async function HostBookingsPage() {
                   <p className="text-xs text-muted-foreground">{b.roomType.name}</p>
                 </TableCell>
                 <TableCell>
-                  {format(b.checkIn, "MMM d, yyyy")} → {format(b.checkOut, "MMM d, yyyy")}
+                  {formatStay(b.checkIn, "MMM d, yyyy")} → {formatStay(b.checkOut, "MMM d, yyyy")}
                   <p className="text-xs text-muted-foreground">{b.nights} nights</p>
                 </TableCell>
                 <TableCell>{b.guests}</TableCell>

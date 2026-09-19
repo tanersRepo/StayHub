@@ -18,7 +18,12 @@ export async function Navbar() {
             <Link href="/host">List your property</Link>
           </Button>
           {user ? (
-            <UserMenu name={user.name ?? user.email ?? "Account"} image={user.image} />
+            <>
+              <Button variant="ghost" asChild>
+                <Link href="/trips">My trips</Link>
+              </Button>
+              <UserMenu name={user.name ?? user.email ?? "Account"} image={user.image} />
+            </>
           ) : (
             <>
               <Button variant="ghost" asChild>

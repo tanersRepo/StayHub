@@ -19,7 +19,7 @@ export function SearchBar({ className }: { className?: string }) {
   const [range, setRange] = useState<DateRange | undefined>(() => {
     const from = params.get("checkIn");
     const to = params.get("checkOut");
-    return from && to ? { from: new Date(from), to: new Date(to) } : undefined;
+    return from && to ? { from: new Date(`${from}T00:00:00`), to: new Date(`${to}T00:00:00`) } : undefined;
   });
 
   function submit(e: React.FormEvent) {

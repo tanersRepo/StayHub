@@ -7,9 +7,9 @@ import { formatMoney } from "@/lib/pricing";
 import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import type { PropertyCardData } from "@/lib/properties";
 
-export function PropertyCard({ p }: { p: PropertyCardData }) {
+export function PropertyCard({ p, hrefSuffix = "" }: { p: PropertyCardData; hrefSuffix?: string }) {
   return (
-    <Link href={`/properties/${p.id}`} className="group block">
+    <Link href={`/properties/${p.id}${hrefSuffix}`} className="group block">
       <Card className="overflow-hidden p-0 transition-shadow group-hover:shadow-lg">
         <div className="relative aspect-[4/3] bg-muted">
           {p.coverUrl && (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format } from "date-fns";
+import { formatStay } from "@/lib/dates";
 import { requireHost } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/pricing";
@@ -68,7 +68,7 @@ export default async function HostDashboard() {
                   </div>
                   <div className="text-right">
                     <p>
-                      {format(b.checkIn, "MMM d")} – {format(b.checkOut, "MMM d")}
+                      {formatStay(b.checkIn, "MMM d")} – {formatStay(b.checkOut, "MMM d")}
                     </p>
                     <Badge variant={b.status === "CONFIRMED" ? "default" : "secondary"}>{b.status}</Badge>
                   </div>

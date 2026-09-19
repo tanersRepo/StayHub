@@ -29,3 +29,5 @@ Next.js 16 (App Router, `src/`), TypeScript, Tailwind v4, shadcn/ui (**radix** s
 - Media: `PropertyMedia` holds photos and ≤30 s videos (`kind` IMAGE|VIDEO, `order` 0 = cover). Uploads go through `POST /api/uploads` (route handler — Server Actions cap bodies at 1 MB); duration is verified server-side by `mp4DurationSeconds()`.
 - Pricing: `PricingRule` tiers (minNights → discountPercent) are per property. Always price via `calculatePrice(rate, checkIn, checkOut, rules)`.
 - Host pages live under `src/app/(host)/host/`; every page/action loads properties with `getOwnedProperty()` / `assertOwnsProperty()` from `src/lib/host.ts`.
+- **Formatting stay dates:** use `formatStay()` from `src/lib/dates.ts`, never `format()` from date-fns directly (UTC-midnight dates shift a day in western timezones). Client date pickers parse `yyyy-mm-dd` as local (`new Date(\`${s}T00:00:00\`)`).
+- Guest flow: `searchProperties()` (`src/lib/search.ts`) → `BookingWidget` → `createBooking` (transactional) → `/bookings/[id]` mock pay → `/trips`. Leaflet map is client-only via `next/dynamic` in `search-map.tsx`.

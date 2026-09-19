@@ -6,29 +6,41 @@ import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/pricing";
 import { AMENITY_LABEL, PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { BookingWidget } from "@/components/booking-widget";
+import { currentUser } from "@/lib/auth";
+import { unavailableNights } from "@/lib/availability";
 
-export default async function PropertyPage({ params }: PageProps<"/properties/[id]">) {
+export default async function PropertyPage({ params, searchParams }: PageProps<"/properties/[id]">) {
   const { id } = await params;
+  const sp = await searchParams;
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const p = await db.property.findFirst({
     where: { id, status: "PUBLISHED" },
     include: {
       host: { select: { name: true, createdAt: true } },
       media: { where: { kind: "IMAGE" }, orderBy: { order: "asc" } },
       roomTypes: { orderBy: { order: "asc" } },
+      pricingRules: true,
       reviews: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
     },
   });
   if (!p) notFound();
 
+  const [user, ...soldOutLists] = await Promise.all([
+    currentUser(),
+    ...p.roomTypes.map((r) => unavailableNights(r.id)),
+  ]);
+  const unavailable = Object.fromEntries(
+    p.roomTypes.map((r, i) => [r.id, soldOutLists[i].map((d) => d.toISOString().slice(0, 10))]),
+  );
+
   const amenities: string[] = JSON.parse(p.amenities);
   const rating = p.reviews.length
     ? p.reviews.reduce((s, r) => s + r.rating, 0) / p.reviews.length
     : null;
-  const fromPrice = Math.min(...p.roomTypes.map((r) => r.pricePerNight));
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -134,32 +146,17 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[i
           </div>
         </div>
 
-        {/* Booking widget placeholder — Phase 3 wires dates + room selection */}
         <div>
-          <Card className="sticky top-24">
-            <CardHeader>
-              <CardTitle>
-                <span className="text-2xl">{formatMoney(fromPrice, p.currency)}</span>
-                <span className="text-sm font-normal text-muted-foreground"> / night</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-lg border p-2">
-                  <p className="text-xs text-muted-foreground">Check-in</p>
-                  <p>Add date</p>
-                </div>
-                <div className="rounded-lg border p-2">
-                  <p className="text-xs text-muted-foreground">Check-out</p>
-                  <p>Add date</p>
-                </div>
-              </div>
-              <Button className="w-full" size="lg">
-                Reserve
-              </Button>
-              <p className="text-center text-xs text-muted-foreground">You won&apos;t be charged yet</p>
-            </CardContent>
-          </Card>
+          <BookingWidget
+            propertyId={p.id}
+            roomTypes={p.roomTypes.map((r) => ({ id: r.id, name: r.name, pricePerNight: r.pricePerNight, maxGuests: r.maxGuests, quantity: r.quantity }))}
+            unavailable={unavailable}
+            rules={p.pricingRules}
+            minNights={p.minNights}
+            currency={p.currency}
+            loggedIn={!!user}
+            initial={{ checkIn: first(sp.checkIn), checkOut: first(sp.checkOut), guests: Number(first(sp.guests)) || undefined }}
+          />
         </div>
       </div>
     </div>

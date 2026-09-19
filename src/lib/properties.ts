@@ -18,7 +18,18 @@ export async function listPublishedProperties(opts: { city?: string; take?: numb
   return props.map(toCard);
 }
 
-export type PropertyCardData = ReturnType<typeof toCard>;
+export interface PropertyCardData {
+  id: string;
+  title: string;
+  type: string;
+  city: string;
+  country: string;
+  currency: string;
+  coverUrl: string | null;
+  fromPrice: number | null;
+  rating: number | null;
+  ratingCount: number;
+}
 
 function toCard(p: {
   id: string;
@@ -30,7 +41,7 @@ function toCard(p: {
   media: { url: string }[];
   roomTypes: { pricePerNight: number }[];
   reviews: { rating: number }[];
-}) {
+}): PropertyCardData {
   const ratingCount = p.reviews.length;
   const rating = ratingCount ? p.reviews.reduce((s, r) => s + r.rating, 0) / ratingCount : null;
   return {
