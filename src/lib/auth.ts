@@ -32,10 +32,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 export const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 
-/** Returns the current session user or null. */
+/**
+ * Returns the current session user or null. Verifies the user still exists so a
+ * stale JWT (e.g. after `db:reset`) is treated as logged out instead of causing FK errors.
+ */
 export async function currentUser() {
   const session = await auth();
-  return session?.user ?? null;
+  if (!session?.user?.id) return null;
+  const exists = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+  if (!exists) return null;
+  return { ...session.user, role: exists.role };
 }
 
 /** Redirects to /login (with callback) when unauthenticated. */
