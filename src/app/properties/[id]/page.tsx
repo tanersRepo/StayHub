@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BookingWidget } from "@/components/booking-widget";
+import { PropertyLocation } from "@/components/property-location";
 import { currentUser } from "@/lib/auth";
 import { unavailableNights } from "@/lib/availability";
 
@@ -42,6 +43,9 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
   const gallery = general.length ? general : p.media;
   const roomPhotos = (roomTypeId: string) => p.media.filter((m) => m.roomTypeId === roomTypeId);
 
+  const hasLocation = p.lat !== null && p.lng !== null;
+  const fromPrice = p.roomTypes.length ? Math.min(...p.roomTypes.map((r) => r.pricePerNight)) : null;
+
   const amenities: string[] = JSON.parse(p.amenities);
   const rating = p.reviews.length
     ? p.reviews.reduce((s, r) => s + r.rating, 0) / p.reviews.length
@@ -66,16 +70,29 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
         </div>
       </div>
 
-      {/* Gallery */}
-      <div className="grid gap-2 overflow-hidden rounded-2xl md:grid-cols-4 md:grid-rows-2">
-        {gallery.slice(0, 5).map((img, i) => (
-          <div
-            key={img.id}
-            className={`relative bg-muted ${i === 0 ? "aspect-[4/3] md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-[4/3]"}`}
-          >
-            <Image src={img.url} alt="" fill sizes="50vw" className="object-cover" priority={i === 0} />
-          </div>
-        ))}
+      {/* Gallery, with the location mini map alongside it (as long as we geocoded the address) */}
+      <div className="grid gap-2 lg:grid-cols-4">
+        <div
+          className={`grid gap-2 overflow-hidden rounded-2xl md:grid-cols-4 md:grid-rows-2 ${
+            hasLocation ? "lg:col-span-3" : "lg:col-span-4"
+          }`}
+        >
+          {gallery.slice(0, 5).map((img, i) => (
+            <div
+              key={img.id}
+              className={`relative bg-muted ${i === 0 ? "aspect-[4/3] md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-[4/3]"}`}
+            >
+              <Image src={img.url} alt="" fill sizes="50vw" className="object-cover" priority={i === 0} />
+            </div>
+          ))}
+        </div>
+        {hasLocation && (
+          <PropertyLocation
+            pin={{ id: p.id, title: p.title, lat: p.lat!, lng: p.lng!, fromPrice, currency: p.currency }}
+            address={`${p.address}, ${p.city}, ${p.country}`}
+            className="aspect-[4/3] lg:aspect-auto"
+          />
+        )}
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-3">
