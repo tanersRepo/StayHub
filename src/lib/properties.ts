@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { COVER_IMAGE } from "@/lib/media-query";
 
 /** Card-level data for listing grids: cover image, min price, rating summary. */
 export async function listPublishedProperties(opts: { city?: string; take?: number } = {}) {
@@ -8,7 +9,7 @@ export async function listPublishedProperties(opts: { city?: string; take?: numb
       ...(opts.city ? { city: { contains: opts.city } } : {}),
     },
     include: {
-      media: { where: { kind: "IMAGE" }, orderBy: { order: "asc" }, take: 1 },
+      media: COVER_IMAGE,
       roomTypes: { orderBy: { pricePerNight: "asc" }, take: 1, select: { pricePerNight: true } },
       reviews: { select: { rating: true } },
     },

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { formatStay } from "@/lib/dates";
 import { CheckCircle2, MapPin, Users } from "lucide-react";
 import { db } from "@/lib/db";
+import { COVER_IMAGE } from "@/lib/media-query";
 import { requireUser } from "@/lib/auth";
 import { calculatePrice, formatMoney } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,7 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
   const b = await db.booking.findFirst({
     where: { id, guestId: user.id },
     include: {
-      property: { include: { media: { where: { kind: "IMAGE" }, orderBy: { order: "asc" }, take: 1 }, pricingRules: true } },
+      property: { include: { media: COVER_IMAGE, pricingRules: true } },
       roomType: true,
       payment: true,
     },

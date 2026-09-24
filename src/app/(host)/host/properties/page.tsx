@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { requireHost } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { COVER_IMAGE } from "@/lib/media-query";
 import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ export default async function HostPropertiesPage() {
   const properties = await db.property.findMany({
     where: { hostId: user.id },
     include: {
-      media: { where: { kind: "IMAGE" }, orderBy: { order: "asc" }, take: 1 },
+      media: COVER_IMAGE,
       _count: { select: { roomTypes: true, media: true, bookings: true } },
     },
     orderBy: { updatedAt: "desc" },

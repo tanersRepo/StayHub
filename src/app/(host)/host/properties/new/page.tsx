@@ -9,7 +9,7 @@ export default function NewPropertyPage() {
       <div>
         <h1 className="text-2xl font-semibold">Add a property</h1>
         <p className="text-sm text-muted-foreground">
-          Start with the basics. You&apos;ll add rooms, photos and pricing next.
+          Start with the basics. You&apos;ll add rooms, room photos, property media and pricing next.
         </p>
       </div>
       <PropertyForm submitLabel="Create and continue" onSubmit={createProperty} />

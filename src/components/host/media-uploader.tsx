@@ -12,6 +12,7 @@ import { deleteMedia, reorderMedia } from "@/actions/media";
 import {
   IMAGE_MIME_EXT,
   MAX_IMAGE_BYTES,
+  MAX_IMAGES_PER_ROOM_TYPE,
   MAX_VIDEO_BYTES,
   MAX_VIDEO_SECONDS,
   VIDEO_MIME_EXT,
@@ -65,7 +66,16 @@ function uploadWithProgress(form: FormData, onProgress: (pct: number) => void): 
   });
 }
 
-export function MediaUploader({ propertyId, media }: { propertyId: string; media: MediaRow[] }) {
+interface MediaUploaderProps {
+  propertyId: string;
+  /** Pass only the media of this scope (general gallery, or one room type). */
+  media: MediaRow[];
+  /** When set, uploads are photos of this room type (no videos). */
+  roomTypeId?: string;
+}
+
+export function MediaUploader({ propertyId, media, roomTypeId }: MediaUploaderProps) {
+  const photosOnly = !!roomTypeId;
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -83,12 +93,14 @@ export function MediaUploader({ propertyId, media }: { propertyId: string; media
         try {
           const isImage = file.type in IMAGE_MIME_EXT;
           const isVideo = file.type in VIDEO_MIME_EXT;
+          if (photosOnly && !isImage) throw new Error("Unsupported type — use JPG, PNG or WebP");
           if (!isImage && !isVideo) throw new Error("Unsupported type — use JPG, PNG, WebP, MP4, WebM or MOV");
           const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
           if (file.size > maxBytes) throw new Error(`Too large (max ${Math.round(maxBytes / 1048576)} MB)`);
           const form = new FormData();
           form.set("file", file);
           form.set("propertyId", propertyId);
+          if (roomTypeId) form.set("roomTypeId", roomTypeId);
           if (isVideo) {
             const duration = await readVideoDuration(file);
             if (duration > MAX_VIDEO_SECONDS) {
@@ -104,7 +116,7 @@ export function MediaUploader({ propertyId, media }: { propertyId: string; media
         }
       }
     },
-    [propertyId, router],
+    [propertyId, roomTypeId, photosOnly, router],
   );
 
   function move(index: number, dir: -1 | 1) {
@@ -151,15 +163,17 @@ export function MediaUploader({ propertyId, media }: { propertyId: string; media
         )}
       >
         <UploadCloud className="size-8 text-muted-foreground" />
-        <p className="font-medium">Drag photos or videos here, or click to browse</p>
+        <p className="font-medium">{photosOnly ? "Drag room photos here, or click to browse" : "Drag photos or videos here, or click to browse"}</p>
         <p className="text-xs text-muted-foreground">
-          JPG, PNG, WebP up to 10 MB · MP4, WebM, MOV up to {MAX_VIDEO_SECONDS} seconds · {images} photos, {videos} videos so far
+          {photosOnly
+            ? `JPG, PNG, WebP up to 10 MB · ${images} of ${MAX_IMAGES_PER_ROOM_TYPE} photos`
+            : `JPG, PNG, WebP up to 10 MB · MP4, WebM, MOV up to ${MAX_VIDEO_SECONDS} seconds · ${images} photos, ${videos} videos so far`}
         </p>
         <input
           ref={inputRef}
           type="file"
           multiple
-          accept={[...Object.keys(IMAGE_MIME_EXT), ...Object.keys(VIDEO_MIME_EXT)].join(",")}
+          accept={[...Object.keys(IMAGE_MIME_EXT), ...(photosOnly ? [] : Object.keys(VIDEO_MIME_EXT))].join(",")}
           className="hidden"
           onChange={(e) => { if (e.target.files) handleFiles(e.target.files); e.target.value = ""; }}
         />
@@ -195,7 +209,7 @@ export function MediaUploader({ propertyId, media }: { propertyId: string; media
       {media.length === 0 ? (
         <p className="text-center text-sm text-muted-foreground">
           <ImagePlus className="mx-auto mb-1 size-5" />
-          No media yet. The first photo becomes the cover.
+          {photosOnly ? "No photos of this room yet. The first one is shown on the room card." : "No media yet. The first photo becomes the cover."}
         </p>
       ) : (
         <ul className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4", pending && "opacity-60")}>

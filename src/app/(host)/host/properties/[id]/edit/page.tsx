@@ -34,6 +34,12 @@ export default async function EditPropertyPage({ params, searchParams }: PagePro
   const editBase = `/host/properties/${property.id}/edit`;
   const cheapest = property.roomTypes.length ? Math.min(...property.roomTypes.map((r) => r.pricePerNight)) : null;
   const updateBasics = updatePropertyBasics.bind(null, property.id);
+  // Photos of a room type are managed from the Rooms tab; the Media tab holds general property media.
+  const generalMedia = property.media.filter((m) => m.roomTypeId === null);
+  const roomTypes = property.roomTypes.map((rt) => ({
+    ...rt,
+    media: property.media.filter((m) => m.roomTypeId === rt.id),
+  }));
 
   return (
     <div className="space-y-6">
@@ -51,7 +57,7 @@ export default async function EditPropertyPage({ params, searchParams }: PagePro
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="rooms">Rooms ({property.roomTypes.length})</TabsTrigger>
-          <TabsTrigger value="media">Media ({property.media.length})</TabsTrigger>
+          <TabsTrigger value="media">Media ({generalMedia.length})</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
           <TabsTrigger value="publish">Publish</TabsTrigger>
         </TabsList>
@@ -65,12 +71,12 @@ export default async function EditPropertyPage({ params, searchParams }: PagePro
             propertyId={property.id}
             propertyType={property.type}
             currency={property.currency}
-            roomTypes={property.roomTypes}
+            roomTypes={roomTypes}
           />
         </TabsContent>
 
         <TabsContent value="media" className="pt-4">
-          <MediaUploader propertyId={property.id} media={property.media} />
+          <MediaUploader propertyId={property.id} media={generalMedia} />
         </TabsContent>
 
         <TabsContent value="pricing" className="pt-4">
