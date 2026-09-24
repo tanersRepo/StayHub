@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatStay } from "@/lib/dates";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { COVER_IMAGE } from "@/lib/media-query";
 import { toUtcDay } from "@/lib/availability";
 import { formatMoney } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,7 @@ export default async function TripsPage() {
   const bookings = await db.booking.findMany({
     where: { guestId: user.id },
     include: {
-      property: { select: { id: true, title: true, city: true, country: true, currency: true, media: { where: { kind: "IMAGE" }, orderBy: { order: "asc" }, take: 1 } } },
+      property: { select: { id: true, title: true, city: true, country: true, currency: true, media: COVER_IMAGE } },
       roomType: { select: { name: true } },
       review: { select: { id: true } },
     },

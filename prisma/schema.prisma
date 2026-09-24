@@ -103,10 +103,13 @@ model Property {
 
 /**
  * Photos and short (≤30s) videos of a property. order 0 is the cover.
+ * roomTypeId is set for photos of a specific room type; null = general property media.
+ * `order` is unique per property across both scopes so covers stay stable.
  */
 model PropertyMedia {
   id          String   @id @default(cuid())
   propertyId  String
+  roomTypeId  String?
   kind        String   @default("IMAGE") // IMAGE | VIDEO
   url         String
   mimeType    String   @default("image/jpeg")
@@ -115,9 +118,11 @@ model PropertyMedia {
   order       Int      @default(0)
   createdAt   DateTime @default(now())
 
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomType RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
 
   @@index([propertyId, order])
+  @@index([roomTypeId, order])
 }
 
 /**
@@ -155,6 +160,7 @@ model RoomType {
   property     Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   blockedDates BlockedDate[]
   bookings     Booking[]
+  media        PropertyMedia[]
 
   @@index([propertyId])
 }

@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BookingWidget } from "@/components/booking-widget";
+import { PropertyLocation } from "@/components/property-location";
 import { currentUser } from "@/lib/auth";
 import { unavailableNights } from "@/lib/availability";
 
@@ -37,6 +38,14 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
     p.roomTypes.map((r, i) => [r.id, soldOutLists[i].map((d) => d.toISOString().slice(0, 10))]),
   );
 
+  // Hero gallery shows general property photos; fall back to room photos if the host only uploaded those.
+  const general = p.media.filter((m) => m.roomTypeId === null);
+  const gallery = general.length ? general : p.media;
+  const roomPhotos = (roomTypeId: string) => p.media.filter((m) => m.roomTypeId === roomTypeId);
+
+  const hasLocation = p.lat !== null && p.lng !== null;
+  const fromPrice = p.roomTypes.length ? Math.min(...p.roomTypes.map((r) => r.pricePerNight)) : null;
+
   const amenities: string[] = JSON.parse(p.amenities);
   const rating = p.reviews.length
     ? p.reviews.reduce((s, r) => s + r.rating, 0) / p.reviews.length
@@ -61,16 +70,29 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
         </div>
       </div>
 
-      {/* Gallery */}
-      <div className="grid gap-2 overflow-hidden rounded-2xl md:grid-cols-4 md:grid-rows-2">
-        {p.media.slice(0, 5).map((img, i) => (
-          <div
-            key={img.id}
-            className={`relative bg-muted ${i === 0 ? "aspect-[4/3] md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-[4/3]"}`}
-          >
-            <Image src={img.url} alt="" fill sizes="50vw" className="object-cover" priority={i === 0} />
-          </div>
-        ))}
+      {/* Gallery, with the location mini map alongside it (as long as we geocoded the address) */}
+      <div className="grid gap-2 lg:grid-cols-4">
+        <div
+          className={`grid gap-2 overflow-hidden rounded-2xl md:grid-cols-4 md:grid-rows-2 ${
+            hasLocation ? "lg:col-span-3" : "lg:col-span-4"
+          }`}
+        >
+          {gallery.slice(0, 5).map((img, i) => (
+            <div
+              key={img.id}
+              className={`relative bg-muted ${i === 0 ? "aspect-[4/3] md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-[4/3]"}`}
+            >
+              <Image src={img.url} alt="" fill sizes="50vw" className="object-cover" priority={i === 0} />
+            </div>
+          ))}
+        </div>
+        {hasLocation && (
+          <PropertyLocation
+            pin={{ id: p.id, title: p.title, lat: p.lat!, lng: p.lng!, fromPrice, currency: p.currency }}
+            address={`${p.address}, ${p.city}, ${p.country}`}
+            className="aspect-[4/3] lg:aspect-auto"
+          />
+        )}
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-3">
@@ -104,17 +126,23 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
           <div>
             <h2 className="mb-3 text-xl font-semibold">Rooms & rates</h2>
             <div className="space-y-3">
-              {p.roomTypes.map((r) => (
+              {p.roomTypes.map((r) => {
+                const photos = roomPhotos(r.id);
+                return (
                 <Card key={r.id}>
                   <CardContent className="flex-row flex-wrap items-center justify-between gap-4">
-                    <div>
+                    <div className="flex min-w-0 items-center gap-4">
+                      {photos.length > 0 && <RoomPhotos photos={photos} name={r.name} />}
+                      <div>
                       <p className="font-medium">{r.name}</p>
+                      {r.description && <p className="mb-1 text-sm text-muted-foreground">{r.description}</p>}
                       <p className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1"><Users className="size-4" />{r.maxGuests} guests</span>
                         <span className="flex items-center gap-1"><BedDouble className="size-4" />{r.beds} beds</span>
                         <span className="flex items-center gap-1"><Bath className="size-4" />{r.bathrooms} bath</span>
                         {r.quantity > 1 && <span>{r.quantity} available</span>}
                       </p>
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold">{formatMoney(r.pricePerNight, p.currency)}</p>
@@ -122,7 +150,8 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           </div>
           <Separator />
@@ -159,6 +188,32 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Cover photo of a room type plus a strip of up to 3 more thumbnails. */
+function RoomPhotos({ photos, name }: { photos: { id: string; url: string }[]; name: string }) {
+  const [cover, ...rest] = photos;
+  return (
+    <div className="flex shrink-0 gap-1">
+      <div className="relative size-24 overflow-hidden rounded-lg bg-muted sm:size-28">
+        <Image src={cover.url} alt={name} fill sizes="112px" className="object-cover" />
+      </div>
+      {rest.length > 0 && (
+        <div className="hidden w-14 flex-col gap-1 sm:flex">
+          {rest.slice(0, 3).map((ph, i) => (
+            <div key={ph.id} className="relative flex-1 overflow-hidden rounded bg-muted">
+              <Image src={ph.url} alt="" fill sizes="56px" className="object-cover" />
+              {i === 2 && rest.length > 3 && (
+                <span className="absolute inset-0 grid place-items-center bg-black/50 text-xs font-medium text-white">
+                  +{rest.length - 3}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

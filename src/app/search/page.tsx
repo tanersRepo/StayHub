@@ -1,22 +1,20 @@
 import { Suspense } from "react";
 import { formatStay } from "@/lib/dates";
 import { SearchBar } from "@/components/search-bar";
+import { SearchFilters } from "@/components/search-filters";
 import { PropertyCard } from "@/components/property-card";
 import { SearchMap } from "@/components/search-map";
-import { parseStayRange, searchProperties } from "@/lib/search";
+import { parseFilters, priceBounds, searchProperties } from "@/lib/search";
 
 export const metadata = { title: "Search" };
 
-const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
   const sp = await searchParams;
-  const city = first(sp.city)?.trim() || undefined;
-  const guests = Math.max(1, Number(first(sp.guests) ?? 1) || 1);
-  const range = parseStayRange(first(sp.checkIn), first(sp.checkOut));
-  const type = first(sp.type) || undefined;
+  const filters = parseFilters(sp);
+  const { city, guests, checkIn, checkOut } = filters;
+  const range = checkIn && checkOut ? { checkIn, checkOut } : null;
 
-  const results = await searchProperties({ city, guests, type, ...(range ?? {}) });
+  const [results, bounds] = await Promise.all([searchProperties(filters), priceBounds()]);
   const pins = results
     .filter((r) => r.lat !== null && r.lng !== null)
     .map((r) => ({ id: r.id, title: r.title, lat: r.lat!, lng: r.lng!, fromPrice: r.fromPrice, currency: r.currency }));
@@ -36,13 +34,23 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
   query.set("guests", String(guests));
   const linkSuffix = `?${query.toString()}`;
 
+  const filtered =
+    filters.amenities?.length || filters.minPrice !== undefined || filters.maxPrice !== undefined || filters.type;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       <Suspense>
         <SearchBar className="mb-6" />
       </Suspense>
-      <div className="grid gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3">
+
+      <div className="grid gap-6 lg:grid-cols-6">
+        <div className="lg:col-span-2 xl:col-span-1">
+          <Suspense>
+            <SearchFilters bounds={bounds} currency={results[0]?.currency ?? "USD"} className="sticky top-6" />
+          </Suspense>
+        </div>
+
+        <div className="lg:col-span-4 xl:col-span-3">
           <div className="mb-4">
             <h1 className="text-xl font-semibold">
               {results.length} {results.length === 1 ? "stay" : "stays"} {summary}
@@ -53,10 +61,15 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
               </p>
             )}
           </div>
+
           {results.length === 0 ? (
             <div className="rounded-xl border border-dashed p-12 text-center">
               <p className="font-medium">No stays match</p>
-              <p className="mt-1 text-sm text-muted-foreground">Try different dates, fewer guests, or another city.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {filtered
+                  ? "Try widening the price range or removing some filters."
+                  : "Try different dates, fewer guests, or another city."}
+              </p>
             </div>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2">
@@ -66,7 +79,8 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
             </div>
           )}
         </div>
-        <div className="hidden lg:col-span-2 lg:block">
+
+        <div className="hidden xl:col-span-2 xl:block">
           <SearchMap pins={pins} />
         </div>
       </div>

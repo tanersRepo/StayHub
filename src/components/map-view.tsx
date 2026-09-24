@@ -26,18 +26,27 @@ const pinIcon = L.divIcon({
 });
 
 /** Re-fits the viewport whenever the set of pins changes. */
-function FitBounds({ pins }: { pins: MapPin[] }) {
+function FitBounds({ pins, zoom }: { pins: MapPin[]; zoom: number }) {
   const map = useMap();
   useEffect(() => {
     if (pins.length === 0) return;
-    if (pins.length === 1) map.setView([pins[0].lat, pins[0].lng], 13);
+    if (pins.length === 1) map.setView([pins[0].lat, pins[0].lng], zoom);
     else map.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number])), { padding: [40, 40], maxZoom: 14 });
-  }, [map, pins]);
+  }, [map, pins, zoom]);
   return null;
 }
 
+interface MapViewProps {
+  pins: MapPin[];
+  className?: string;
+  /** Zoom used when there is a single pin. */
+  zoom?: number;
+  /** false disables panning/zooming and pin popups — for decorative mini maps. */
+  interactive?: boolean;
+}
+
 /** Map of search results. Must be loaded with `next/dynamic` and `ssr: false`. */
-export function MapView({ pins, className }: { pins: MapPin[]; className?: string }) {
+export function MapView({ pins, className, zoom = 13, interactive = true }: MapViewProps) {
   const center: [number, number] = pins.length
     ? [pins.reduce((s, p) => s + p.lat, 0) / pins.length, pins.reduce((s, p) => s + p.lng, 0) / pins.length]
     : [48.8, 8.5];
@@ -47,21 +56,30 @@ export function MapView({ pins, className }: { pins: MapPin[]; className?: strin
       center={center}
       zoom={5}
       scrollWheelZoom={false}
+      dragging={interactive}
+      doubleClickZoom={interactive}
+      touchZoom={interactive}
+      boxZoom={interactive}
+      keyboard={interactive}
+      zoomControl={interactive}
+      attributionControl={interactive}
       className={className ?? "h-full w-full"}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds pins={pins} />
+      <FitBounds pins={pins} zoom={zoom} />
       {pins.map((p) => (
-        <Marker key={p.id} position={[p.lat, p.lng]} icon={pinIcon}>
+        <Marker key={p.id} position={[p.lat, p.lng]} icon={pinIcon} interactive={interactive}>
+          {interactive && (
           <Popup>
             <Link href={`/properties/${p.id}`} className="font-medium underline">
               {p.title}
             </Link>
             {p.fromPrice !== null && <div className="text-sm">from {formatMoney(p.fromPrice, p.currency)} / night</div>}
           </Popup>
+          )}
         </Marker>
       ))}
     </MapContainer>
