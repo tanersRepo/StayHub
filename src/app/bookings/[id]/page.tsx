@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SearchBar } from "@/components/search-bar";
 import { formatStay } from "@/lib/dates";
 import { CheckCircle2, MapPin, Users } from "lucide-react";
 import { db } from "@/lib/db";
@@ -56,6 +58,10 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
+      {/* Search for another stay; pre-filled with this booking's city. */}
+      <Suspense>
+        <SearchBar className="mb-6" defaultCity={b.property.city} />
+      </Suspense>
       {justPaid && (
         <div className="mb-6 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
           <CheckCircle2 className="size-6 shrink-0" />

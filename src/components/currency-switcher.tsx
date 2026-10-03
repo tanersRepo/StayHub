@@ -17,7 +17,7 @@ import { CURRENCIES, CURRENCY_LABEL, type Currency } from "@/lib/currency";
 import { setDisplayCurrency } from "@/actions/currency";
 
 /** Header "USD ▾" menu: which currency guests see prices in. */
-export function CurrencySwitcher({ current }: { current: Currency }) {
+export function CurrencySwitcher({ current, className }: { current: Currency; className?: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
@@ -42,7 +42,7 @@ export function CurrencySwitcher({ current }: { current: Currency }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" disabled={pending} aria-label={`Currency: ${CURRENCY_LABEL[current].name}`}>
+        <Button variant="ghost" className={className} disabled={pending} aria-label={`Currency: ${CURRENCY_LABEL[current].name}`}>
           {current}
         </Button>
       </DropdownMenuTrigger>
