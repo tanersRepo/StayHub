@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { SearchBar } from "@/components/search-bar";
 import { format } from "date-fns";
 import { Bath, BedDouble, Check, MapPin, Star, Users } from "lucide-react";
 import { db } from "@/lib/db";
@@ -72,6 +74,10 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
   return (
     <LightboxStateProvider>
     <div className="mx-auto max-w-7xl px-4 py-8">
+      {/* Search again from here; pre-filled with this listing's city and the dates in the URL. */}
+      <Suspense>
+        <SearchBar className="mb-6" defaultCity={p.city} />
+      </Suspense>
       <div className="mb-4">
         <Badge variant="secondary">{PROPERTY_TYPE_LABEL[p.type] ?? p.type}</Badge>
         <h1 className="mt-2 text-3xl font-bold">{p.title}</h1>

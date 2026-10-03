@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Search, Users } from "lucide-react";
+import { CalendarIcon, Users } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,12 +16,14 @@ interface SearchBarProps {
   className?: string;
   /** yyyy-mm-dd dates to pre-select when the URL carries none (e.g. a suggested weekend). */
   defaultRange?: { checkIn: string; checkOut: string };
+  /** Destination to pre-fill when the URL carries none (e.g. the city of the listing being viewed). */
+  defaultCity?: string;
 }
 
-export function SearchBar({ className, defaultRange }: SearchBarProps) {
+export function SearchBar({ className, defaultRange, defaultCity }: SearchBarProps) {
   const router = useRouter();
   const params = useSearchParams();
-  const [city, setCity] = useState(params.get("city") ?? "");
+  const [city, setCity] = useState(params.get("city") ?? defaultCity ?? "");
   const [guests, setGuests] = useState(Number(params.get("guests") ?? 2));
   const [range, setRange] = useState<DateRange | undefined>(() => {
     const from = params.get("checkIn") ?? defaultRange?.checkIn;
@@ -50,7 +52,7 @@ export function SearchBar({ className, defaultRange }: SearchBarProps) {
     <form
       onSubmit={submit}
       className={cn(
-        "flex w-full flex-col gap-2 rounded-2xl border bg-background p-2 shadow-lg md:flex-row md:items-center md:rounded-full",
+        "flex w-full flex-col gap-2 rounded-2xl border-2 border-[#febb02] bg-background p-2 shadow-lg md:flex-row md:items-center md:rounded-full",
         className,
       )}
     >
@@ -89,9 +91,8 @@ export function SearchBar({ className, defaultRange }: SearchBarProps) {
         />
         <span className="text-sm text-muted-foreground">guests</span>
       </div>
-      <Button type="submit" size="lg" className="rounded-full md:size-11 md:p-0">
-        <Search className="size-4" />
-        <span className="md:hidden">Search</span>
+      <Button type="submit" size="lg" className="rounded-full md:h-11 md:px-6">
+        Search
       </Button>
     </form>
   );
