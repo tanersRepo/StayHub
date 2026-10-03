@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MapPin } from "@/components/map-view";
+import { useLightboxOpen } from "@/components/lightbox-state";
 
 // Leaflet touches `window` at import time, so it can only render on the client.
 const MapView = dynamic(() => import("@/components/map-view").then((m) => m.MapView), {
@@ -27,6 +28,9 @@ interface Props {
  */
 export function PropertyLocation({ pin, address, className }: Props) {
   const [open, setOpen] = useState(false);
+  // The mini map belongs to the page view only: unmount it while a photo viewer is open, so it
+  // can never show through (Leaflet's own z-indexes have leaked over dialogs before).
+  const photosOpen = useLightboxOpen();
   const pins = [pin];
 
   return (
@@ -39,14 +43,16 @@ export function PropertyLocation({ pin, address, className }: Props) {
       >
         {/* pointer-events-none so every click lands on this button, not on Leaflet. */}
         <div className="pointer-events-none size-full">
-          <MapView pins={pins} zoom={14} interactive={false} />
+          {!photosOpen && <MapView pins={pins} zoom={14} interactive={false} />}
         </div>
-        <span className="absolute inset-0 grid place-items-center bg-black/5 transition-colors group-hover:bg-black/10">
-          <span className="pointer-events-none inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg">
-            <MapPinIcon className="size-4" />
-            Show on map
+        {!photosOpen && (
+          <span className="absolute inset-0 grid place-items-center bg-black/5 transition-colors group-hover:bg-black/10">
+            <span className="pointer-events-none inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg">
+              <MapPinIcon className="size-4" />
+              Show on map
+            </span>
           </span>
-        </span>
+        )}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>

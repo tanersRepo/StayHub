@@ -5,19 +5,28 @@ import { SearchFilters } from "@/components/search-filters";
 import { PropertyCard } from "@/components/property-card";
 import { SearchMap } from "@/components/search-map";
 import { parseFilters, priceBounds, searchProperties } from "@/lib/search";
+import { getDisplayMoney } from "@/lib/currency-server";
+import { toDisplay } from "@/lib/currency";
 
 export const metadata = { title: "Search" };
 
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
   const sp = await searchParams;
   const filters = parseFilters(sp);
+  const display = await getDisplayMoney();
   const { city, guests, checkIn, checkOut } = filters;
   const range = checkIn && checkOut ? { checkIn, checkOut } : null;
 
-  const [results, bounds] = await Promise.all([searchProperties(filters), priceBounds()]);
+  const [results, bounds] = await Promise.all([
+    searchProperties({ ...filters, display }),
+    priceBounds(display),
+  ]);
   const pins = results
     .filter((r) => r.lat !== null && r.lng !== null)
-    .map((r) => ({ id: r.id, title: r.title, lat: r.lat!, lng: r.lng!, fromPrice: r.fromPrice, currency: r.currency }));
+    .map((r) => {
+      const price = r.fromPrice === null ? null : toDisplay(r.fromPrice, r.currency, display);
+      return { id: r.id, title: r.title, lat: r.lat!, lng: r.lng!, fromPrice: price?.amount ?? null, currency: price?.currency ?? r.currency };
+    });
 
   const summary = [
     city ? `in ${city}` : "everywhere",
@@ -46,7 +55,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
       <div className="grid gap-6 lg:grid-cols-6">
         <div className="lg:col-span-2 xl:col-span-1">
           <Suspense>
-            <SearchFilters bounds={bounds} currency={results[0]?.currency ?? "USD"} className="sticky top-6" />
+            <SearchFilters bounds={bounds} currency={display.currency} className="sticky top-6" />
           </Suspense>
         </div>
 
@@ -74,7 +83,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
           ) : (
             <div className="grid gap-6 sm:grid-cols-2">
               {results.map((p) => (
-                <PropertyCard key={p.id} p={p} hrefSuffix={linkSuffix} />
+                <PropertyCard key={p.id} p={p} display={display} hrefSuffix={linkSuffix} />
               ))}
             </div>
           )}

@@ -3,22 +3,29 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, MapPin, Search, Users } from "lucide-react";
+import { CalendarIcon, Search, Users } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { DestinationInput } from "@/components/destination-input";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export function SearchBar({ className }: { className?: string }) {
+interface SearchBarProps {
+  className?: string;
+  /** yyyy-mm-dd dates to pre-select when the URL carries none (e.g. a suggested weekend). */
+  defaultRange?: { checkIn: string; checkOut: string };
+}
+
+export function SearchBar({ className, defaultRange }: SearchBarProps) {
   const router = useRouter();
   const params = useSearchParams();
   const [city, setCity] = useState(params.get("city") ?? "");
   const [guests, setGuests] = useState(Number(params.get("guests") ?? 2));
   const [range, setRange] = useState<DateRange | undefined>(() => {
-    const from = params.get("checkIn");
-    const to = params.get("checkOut");
+    const from = params.get("checkIn") ?? defaultRange?.checkIn;
+    const to = params.get("checkOut") ?? defaultRange?.checkOut;
     return from && to ? { from: new Date(`${from}T00:00:00`), to: new Date(`${to}T00:00:00`) } : undefined;
   });
 
@@ -47,20 +54,15 @@ export function SearchBar({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="flex flex-1 items-center gap-2 px-3">
-        <MapPin className="size-4 shrink-0 text-muted-foreground" />
-        <Input
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="Where to? e.g. Lisbon"
-          className="border-0 shadow-none focus-visible:ring-0"
-        />
-      </div>
+      <DestinationInput value={city} onChange={setCity} placeholder="Where to? e.g. Lisbon" />
       <Popover>
         <PopoverTrigger asChild>
-          <Button type="button" variant="ghost" className="justify-start gap-2 md:w-52">
+          <Button type="button" variant="ghost" className="h-auto justify-start gap-2 py-1.5 md:w-52">
             <CalendarIcon className="size-4 text-muted-foreground" />
-            {dateLabel}
+            <span className="flex flex-col items-start leading-tight">
+              <span className="text-xs font-normal text-muted-foreground">Select your dates</span>
+              <span>{dateLabel}</span>
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -68,6 +70,7 @@ export function SearchBar({ className }: { className?: string }) {
             mode="range"
             numberOfMonths={2}
             selected={range}
+            defaultMonth={range?.from}
             onSelect={setRange}
             disabled={{ before: new Date() }}
           />

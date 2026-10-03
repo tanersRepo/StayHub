@@ -115,7 +115,7 @@ export function PricingRulesEditor({ propertyId, currency, minNights: initialMin
             </Table>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            The highest tier a stay reaches is applied. Discounts apply to the nightly subtotal before the guest service fee.
+            The highest tier a stay reaches is applied. Discounts apply to the nightly subtotal.
           </p>
         </div>
 
@@ -141,9 +141,7 @@ export function PricingRulesEditor({ propertyId, currency, minNights: initialMin
                   {example.discount > 0 && (
                     <Row label={`Long-stay discount (${example.discountPercent}%)`} value={`− ${formatMoney(example.discount, currency)}`} className="text-green-700 dark:text-green-400" />
                   )}
-                  <Row label="Guest service fee (10%)" value={formatMoney(example.serviceFee, currency)} />
                   <Row label="Guest pays" value={formatMoney(example.total, currency)} className="border-t pt-2 font-semibold" />
-                  <Row label="You receive" value={formatMoney(example.subtotal - example.discount, currency)} className="text-muted-foreground" />
                 </dl>
               )}
               {sorted.length > 0 && (

@@ -3,12 +3,14 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { startingPrices } from "@/lib/rates";
 import { requireHost, requireUser } from "@/lib/auth";
 import { assertOwnsProperty } from "@/lib/host";
 import { geocodeAddress } from "@/lib/geocode";
 import { propertyBasicsSchema, type PropertyBasicsInput } from "@/lib/validators/property";
 
-export type ActionResult = { error?: string; success?: boolean };
+/** `id` is set by actions that create something, so the caller can go straight to it. */
+export type ActionResult = { error?: string; success?: boolean; id?: string };
 
 /** Creates a DRAFT property and sends the host to the editor. */
 export async function createProperty(input: PropertyBasicsInput): Promise<ActionResult> {
@@ -55,10 +57,13 @@ export async function setPropertyStatus(
   if (status === "PUBLISHED") {
     const p = await db.property.findUniqueOrThrow({
       where: { id: propertyId },
-      include: { _count: { select: { roomTypes: true, media: true } } },
+      include: { _count: { select: { roomTypes: true, media: true } }, roomTypes: { select: { id: true, name: true, pricePerNight: true } } },
     });
     if (p._count.roomTypes === 0) return { error: "Add at least one room type before publishing" };
     if (p._count.media === 0) return { error: "Add at least one photo before publishing" };
+    const from = await startingPrices(p.roomTypes);
+    const unpriced = p.roomTypes.find((r) => from.get(r.id) == null);
+    if (unpriced) return { error: `Set prices for "${unpriced.name}" in the pricing calendar before publishing` };
   }
   await db.property.update({ where: { id: propertyId }, data: { status } });
   revalidatePath(`/host/properties/${propertyId}/edit`);

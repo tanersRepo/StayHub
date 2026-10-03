@@ -3,11 +3,18 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatMoney } from "@/lib/pricing";
+import { formatPrice, type DisplayMoney } from "@/lib/currency";
 import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import type { PropertyCardData } from "@/lib/properties";
 
-export function PropertyCard({ p, hrefSuffix = "" }: { p: PropertyCardData; hrefSuffix?: string }) {
+interface Props {
+  p: PropertyCardData;
+  /** Currency the guest views prices in; the listing's own price is converted to it. */
+  display: DisplayMoney;
+  hrefSuffix?: string;
+}
+
+export function PropertyCard({ p, display, hrefSuffix = "" }: Props) {
   return (
     <Link href={`/properties/${p.id}${hrefSuffix}`} className="group block">
       <Card className="overflow-hidden p-0 transition-shadow group-hover:shadow-lg">
@@ -41,7 +48,7 @@ export function PropertyCard({ p, hrefSuffix = "" }: { p: PropertyCardData; href
           </p>
           {p.fromPrice !== null && (
             <p className="pt-1 text-sm">
-              <span className="font-semibold">{formatMoney(p.fromPrice, p.currency)}</span>
+              <span className="font-semibold">{formatPrice(p.fromPrice, p.currency, display)}</span>
               <span className="text-muted-foreground"> / night</span>
             </p>
           )}

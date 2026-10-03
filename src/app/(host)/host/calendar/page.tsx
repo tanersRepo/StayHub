@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { format } from "date-fns";
 import { requireHost } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ACTIVE_BOOKING_STATUSES, nightsOf, toUtcDay } from "@/lib/availability";
-import { AvailabilityCalendar, type CalendarNight } from "@/components/host/availability-calendar";
+import { PricingCalendar } from "@/components/host/pricing-calendar";
+import { loadCalendarNights } from "@/lib/host-calendar";
 import { Label } from "@/components/ui/label";
 
 export const metadata = { title: "Calendar" };
@@ -14,10 +13,10 @@ export default async function HostCalendarPage({ searchParams }: PageProps<"/hos
 
   const properties = await db.property.findMany({
     where: { hostId: user.id },
-    include: { roomTypes: { orderBy: { order: "asc" }, select: { id: true, name: true, quantity: true } } },
+    include: { roomTypes: { orderBy: { order: "asc" }, select: { id: true, name: true, quantity: true, pricePerNight: true } } },
     orderBy: { title: "asc" },
   });
-  const all = properties.flatMap((p) => p.roomTypes.map((rt) => ({ ...rt, propertyTitle: p.title })));
+  const all = properties.flatMap((p) => p.roomTypes.map((rt) => ({ ...rt, propertyTitle: p.title, currency: p.currency })));
   const selected = all.find((rt) => rt.id === selectedParam) ?? all[0];
 
   if (!selected) {
@@ -31,36 +30,17 @@ export default async function HostCalendarPage({ searchParams }: PageProps<"/hos
     );
   }
 
-  // Build per-night occupancy from today for the selected room type.
-  const today = toUtcDay(new Date());
-  const [bookings, blocked] = await Promise.all([
-    db.booking.findMany({
-      where: { roomTypeId: selected.id, status: { in: ACTIVE_BOOKING_STATUSES }, checkOut: { gt: today } },
-      select: { checkIn: true, checkOut: true },
-    }),
-    db.blockedDate.findMany({ where: { roomTypeId: selected.id, date: { gte: today } }, select: { date: true } }),
-  ]);
-  const map = new Map<string, CalendarNight>();
-  const key = (d: Date) => format(d, "yyyy-MM-dd");
-  for (const b of bookings) {
-    for (const n of nightsOf(b)) {
-      const k = key(new Date(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-      const cur = map.get(k) ?? { date: k, booked: 0, blocked: false };
-      cur.booked += 1;
-      map.set(k, cur);
-    }
-  }
-  for (const b of blocked) {
-    const d = toUtcDay(b.date);
-    const k = key(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    const cur = map.get(k) ?? { date: k, booked: 0, blocked: false };
-    cur.blocked = true;
-    map.set(k, cur);
-  }
+  const nights = await loadCalendarNights(selected.id);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Calendar</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Calendar &amp; prices</h1>
+        <p className="text-sm text-muted-foreground">
+          Set a different price for any night, or block nights you can&apos;t host. Nights you don&apos;t change use the
+          room&apos;s base price.
+        </p>
+      </div>
       <div className="max-w-md">
         <Label className="mb-2 block">Room type</Label>
         <nav className="flex flex-col gap-1 rounded-lg border p-1">
@@ -76,15 +56,14 @@ export default async function HostCalendarPage({ searchParams }: PageProps<"/hos
           ))}
         </nav>
       </div>
-      <div className="max-w-md">
-        <AvailabilityCalendar
-          key={selected.id}
-          roomTypeId={selected.id}
-          quantity={selected.quantity}
-          nights={[...map.values()]}
-        />
-        <p className="mt-2 text-xs text-muted-foreground">Click a night to block or unblock it for all units of this room type.</p>
-      </div>
+      <PricingCalendar
+        key={selected.id}
+        roomTypeId={selected.id}
+        basePrice={selected.pricePerNight}
+        currency={selected.currency}
+        quantity={selected.quantity}
+        nights={nights}
+      />
     </div>
   );
 }

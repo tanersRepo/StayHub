@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Bath, BedDouble, Camera, Layers, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Bath, BedDouble, CalendarDays, Camera, Layers, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +27,10 @@ export interface RoomTypeRow {
   id: string;
   name: string;
   description: string;
-  pricePerNight: number;
+  /** Default nightly price, or null if the host only prices specific dates. */
+  pricePerNight: number | null;
+  /** Lowest price of any night from today (default or per-date), or null if unpriced. */
+  fromPrice: number | null;
   maxGuests: number;
   bedrooms: number;
   beds: number;
@@ -91,7 +96,20 @@ export function RoomTypeEditor({ propertyId, propertyType, currency, roomTypes }
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <p className="font-semibold">{formatMoney(rt.pricePerNight, currency)}<span className="text-xs font-normal text-muted-foreground"> / night</span></p>
+                {rt.fromPrice === null ? (
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">No prices yet</p>
+                ) : (
+                  <p className="font-semibold">
+                    <span className="text-xs font-normal text-muted-foreground">from </span>
+                    {formatMoney(rt.fromPrice, currency)}
+                    <span className="text-xs font-normal text-muted-foreground"> / night</span>
+                  </p>
+                )}
+                <Button variant={rt.fromPrice === null ? "default" : "outline"} size="sm" asChild>
+                  <Link href={`/host/properties/${propertyId}/edit?tab=pricing&room=${rt.id}`}>
+                    <CalendarDays className="size-4" /> Set prices
+                  </Link>
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setPhotosFor(rt)}>
                   <Camera className="size-4" /> Photos ({rt.media.length})
                 </Button>
@@ -110,7 +128,6 @@ export function RoomTypeEditor({ propertyId, propertyType, currency, roomTypes }
       <RoomTypeDialog
         key={editing === "new" ? "new" : editing?.id ?? "closed"}
         propertyId={propertyId}
-        currency={currency}
         roomType={editing === "new" ? null : editing}
         open={editing !== null}
         onClose={() => setEditing(null)}
@@ -162,18 +179,17 @@ function RoomThumb({ media, onClick }: { media: MediaRow[]; onClick: () => void 
 
 function RoomTypeDialog({
   propertyId,
-  currency,
   roomType,
   open,
   onClose,
 }: {
   propertyId: string;
-  currency: string;
   roomType: RoomTypeRow | null;
   open: boolean;
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
+  const router = useRouter();
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -183,8 +199,13 @@ function RoomTypeDialog({
       const res = roomType ? await updateRoomType(roomType.id, input) : await createRoomType(propertyId, input);
       if (res.error) toast.error(res.error);
       else {
-        toast.success(roomType ? "Room type updated" : "Room type added");
         onClose();
+        if (roomType) toast.success("Room type updated");
+        else {
+          // A new room has no prices: take the host straight to its pricing calendar.
+          toast.success("Room added. Now set its prices.");
+          router.push(`/host/properties/${propertyId}/edit?tab=pricing&room=${res.id}`);
+        }
       }
     });
   }
@@ -195,7 +216,7 @@ function RoomTypeDialog({
         <form onSubmit={submit}>
           <DialogHeader>
             <DialogTitle>{roomType ? "Edit room type" : "Add room type"}</DialogTitle>
-            <DialogDescription>Price is per night in {currency}.</DialogDescription>
+            <DialogDescription>Describe the room. You&apos;ll set its prices on a calendar, date by date, next.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -206,7 +227,6 @@ function RoomTypeDialog({
               <Label className="mb-2 block">Description (optional)</Label>
               <Textarea name="description" defaultValue={roomType?.description ?? ""} rows={2} />
             </div>
-            <Num label={`Price per night (${currency})`} name="price" step="0.01" defaultValue={roomType ? roomType.pricePerNight / 100 : ""} />
             <Num label="Identical units" name="quantity" defaultValue={roomType?.quantity ?? 1} />
             <Num label="Max guests" name="maxGuests" defaultValue={roomType?.maxGuests ?? 2} />
             <Num label="Bedrooms" name="bedrooms" defaultValue={roomType?.bedrooms ?? 1} min={0} />

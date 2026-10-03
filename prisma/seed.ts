@@ -2,6 +2,7 @@ import "dotenv/config";
 import { hash } from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { createFeatured } from "./seed-featured";
 
 const db = new PrismaClient({
   adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" }),
@@ -52,6 +53,7 @@ async function main() {
   await db.payment.deleteMany();
   await db.booking.deleteMany();
   await db.blockedDate.deleteMany();
+  await db.nightlyRate.deleteMany();
   await db.roomType.deleteMany();
   await db.propertyMedia.deleteMany();
   await db.pricingRule.deleteMany();
@@ -100,9 +102,13 @@ async function main() {
         },
         include: { roomTypes: { orderBy: { order: "asc" } } },
       });
-      properties.push({ id: p.id, roomTypeId: p.roomTypes[0].id, pricePerNight: p.roomTypes[0].pricePerNight });
+      properties.push({ id: p.id, roomTypeId: p.roomTypes[0].id, pricePerNight: p.roomTypes[0].pricePerNight! });
     }
   }
+
+  // Showcase listings with real photos (general shots, plus each room's own bedroom photos).
+  const featured = await createFeatured(db, [host1.id, host2.id]);
+  properties.push(...featured);
 
   // Past completed bookings with reviews
   const today = new Date();
@@ -118,11 +124,11 @@ async function main() {
     const guest = guests[i % guests.length];
     const checkIn = addDays(base, -40 - i * 3);
     const checkOut = addDays(checkIn, 3);
-    const total = p.pricePerNight * 3 + Math.round(p.pricePerNight * 3 * 0.1);
+    const total = p.pricePerNight * 3;
     const booking = await db.booking.create({
       data: {
         propertyId: p.id, roomTypeId: p.roomTypeId, guestId: guest.id, checkIn, checkOut, guests: 2, nights: 3,
-        totalAmount: total, status: "COMPLETED",
+        totalAmount: total, subtotalAmount: total, discountAmount: 0, status: "COMPLETED",
         payment: { create: { amount: total } },
       },
     });
@@ -139,11 +145,11 @@ async function main() {
     const p = properties[i];
     const checkIn = addDays(base, 5 + i * 4);
     const checkOut = addDays(checkIn, 2);
-    const total = p.pricePerNight * 2 + Math.round(p.pricePerNight * 2 * 0.1);
+    const total = p.pricePerNight * 2;
     await db.booking.create({
       data: {
         propertyId: p.id, roomTypeId: p.roomTypeId, guestId: guests[0].id, checkIn, checkOut, guests: 2, nights: 2,
-        totalAmount: total, status: "CONFIRMED", payment: { create: { amount: total } },
+        totalAmount: total, subtotalAmount: total, discountAmount: 0, status: "CONFIRMED", payment: { create: { amount: total } },
       },
     });
     await db.blockedDate.createMany({

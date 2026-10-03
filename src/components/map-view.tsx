@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { formatMoney } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 
 export interface MapPin {
   id: string;
@@ -52,36 +53,45 @@ export function MapView({ pins, className, zoom = 13, interactive = true }: MapV
     : [48.8, 8.5];
 
   return (
-    <MapContainer
-      center={center}
-      zoom={5}
-      scrollWheelZoom={false}
-      dragging={interactive}
-      doubleClickZoom={interactive}
-      touchZoom={interactive}
-      boxZoom={interactive}
-      keyboard={interactive}
-      zoomControl={interactive}
-      attributionControl={interactive}
-      className={className ?? "h-full w-full"}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <FitBounds pins={pins} zoom={zoom} />
-      {pins.map((p) => (
-        <Marker key={p.id} position={[p.lat, p.lng]} icon={pinIcon} interactive={interactive}>
-          {interactive && (
-          <Popup>
-            <Link href={`/properties/${p.id}`} className="font-medium underline">
-              {p.title}
-            </Link>
-            {p.fromPrice !== null && <div className="text-sm">from {formatMoney(p.fromPrice, p.currency)} / night</div>}
-          </Popup>
-          )}
-        </Marker>
-      ))}
-    </MapContainer>
+    // Leaflet's own panes/controls use z-index up to 1000 and never scope themselves, so without
+    // `isolate` they paint above anything stacked on top of the map elsewhere on the page (e.g. a
+    // dialog). This has to live on our own wrapper, not MapContainer's `className` prop:
+    // react-leaflet freezes that prop in a `useState` at first mount and never updates it again,
+    // so a `MapContainer` that survives a Fast Refresh would otherwise keep its stale class.
+    <div className={cn(className ?? "h-full w-full", "isolate")}>
+      <MapContainer
+        center={center}
+        zoom={5}
+        scrollWheelZoom={false}
+        dragging={interactive}
+        doubleClickZoom={interactive}
+        touchZoom={interactive}
+        boxZoom={interactive}
+        keyboard={interactive}
+        zoomControl={interactive}
+        attributionControl={interactive}
+        className="h-full w-full"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <FitBounds pins={pins} zoom={zoom} />
+        {pins.map((p) => (
+          <Marker key={p.id} position={[p.lat, p.lng]} icon={pinIcon} interactive={interactive}>
+            {interactive && (
+              <Popup>
+                <Link href={`/properties/${p.id}`} className="font-medium underline">
+                  {p.title}
+                </Link>
+                {p.fromPrice !== null && (
+                  <div className="text-sm">from {formatMoney(p.fromPrice, p.currency)} / night</div>
+                )}
+              </Popup>
+            )}
+          </Marker>
+        ))}
+      </MapContainer>
+    </div>
   );
 }

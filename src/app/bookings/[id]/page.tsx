@@ -28,7 +28,29 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
   });
   if (!b) notFound();
 
-  const price = calculatePrice(b.roomType.pricePerNight, b.checkIn, b.checkOut, b.property.pricingRules);
+  // Bookings store the breakdown they were charged. Older ones (before per-night prices) didn't, so
+  // rebuild theirs from the flat nightly rate; those were also charged a since-removed service
+  // fee, shown so their receipt still adds up to what was actually charged.
+  // (If the room has since lost its default price, there's nothing to rebuild from: show the total.)
+  const legacy =
+    b.subtotalAmount === null && b.roomType.pricePerNight !== null
+      ? calculatePrice(b.roomType.pricePerNight, b.checkIn, b.checkOut, b.property.pricingRules)
+      : null;
+  const breakdown = legacy
+    ? {
+        subtotalLabel: `${formatMoney(legacy.pricePerNight ?? 0, b.property.currency)} × ${legacy.nights} nights`,
+        subtotal: legacy.subtotal,
+        discount: legacy.discount,
+        discountLabel: `Long-stay discount (${legacy.discountPercent}%)`,
+        serviceFee: b.totalAmount - legacy.total,
+      }
+    : {
+        subtotalLabel: `${b.nights} night${b.nights === 1 ? "" : "s"}`,
+        subtotal: b.subtotalAmount ?? b.totalAmount,
+        discount: b.discountAmount ?? 0,
+        discountLabel: "Long-stay discount",
+        serviceFee: 0,
+      };
   const cur = b.property.currency;
   const justPaid = paid === "1" && b.status === "CONFIRMED";
 
@@ -91,9 +113,9 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                 <p className="flex items-center gap-1 text-muted-foreground"><Users className="size-3.5" />{b.guests} guests</p>
               </div>
               <dl className="space-y-1 border-t pt-3">
-                <Row label={`${formatMoney(price.pricePerNight, cur)} × ${price.nights} nights`} value={formatMoney(price.subtotal, cur)} />
-                {price.discount > 0 && <Row label={`Long-stay discount (${price.discountPercent}%)`} value={`− ${formatMoney(price.discount, cur)}`} />}
-                <Row label="Service fee" value={formatMoney(price.serviceFee, cur)} />
+                <Row label={breakdown.subtotalLabel} value={formatMoney(breakdown.subtotal, cur)} />
+                {breakdown.discount > 0 && <Row label={breakdown.discountLabel} value={`− ${formatMoney(breakdown.discount, cur)}`} />}
+                {breakdown.serviceFee > 0 && <Row label="Service fee" value={formatMoney(breakdown.serviceFee, cur)} />}
                 <Row label="Total" value={formatMoney(b.totalAmount, cur)} className="border-t pt-2 text-base font-semibold" />
               </dl>
             </CardContent>

@@ -1,8 +1,10 @@
 import { db } from "@/lib/db";
 import { COVER_IMAGE } from "@/lib/media-query";
 import { availableRoomTypeIds, toUtcDay } from "@/lib/availability";
-import { nightsBetween } from "@/lib/pricing";
+import { calculatePrice, nightsBetween, roundToWhole, unpricedNights } from "@/lib/pricing";
+import { loadOverrides, startingPrices } from "@/lib/rates";
 import { AMENITIES } from "@/lib/validators/property";
+import { CURRENCIES, DEFAULT_CURRENCY, FALLBACK_RATES, convertMinor, type DisplayMoney } from "@/lib/currency";
 
 export interface SearchParams {
   city?: string;
@@ -10,10 +12,15 @@ export interface SearchParams {
   checkOut?: Date;
   guests?: number;
   type?: string;
-  minPrice?: number; // minor units, per night
-  maxPrice?: number; // minor units, per night
+  minPrice?: number; // minor units, per night, in `currency`
+  maxPrice?: number; // minor units, per night, in `currency`
+  /** Display currency (and rates) the price bounds are expressed in. Defaults to USD. */
+  display?: DisplayMoney;
   amenities?: string[]; // property must have all of them
 }
+
+/** Used when a caller doesn't pass display settings (bounds are then plain USD). */
+const DEFAULT_DISPLAY: DisplayMoney = { currency: DEFAULT_CURRENCY, rates: FALLBACK_RATES };
 
 export interface SearchResult {
   id: string;
@@ -42,35 +49,28 @@ export function parseStayRange(checkIn?: string, checkOut?: string) {
 /**
  * Published properties matching the filters. When dates are given, only properties with at
  * least one room type that fits the guests AND is free for every night are returned, and
- * `fromPrice` reflects only those room types.
+ * `fromPrice` reflects only those room types. With dates, `fromPrice` is the cheapest room's
+ * average nightly price for that stay (per-night prices vary); without, the cheapest base price.
  */
 export async function searchProperties(params: SearchParams): Promise<SearchResult[]> {
   const guests = params.guests ?? 1;
   // Amenities are a JSON array in a String column (SQLite has no array type); the quotes around
   // the value keep `"pool"` from matching a hypothetical `"pool_table"`. All selected must be present.
   const amenityFilter = (params.amenities ?? []).map((a) => ({ amenities: { contains: `"${a}"` } }));
-  const rateFilter = {
-    ...(params.minPrice !== undefined || params.maxPrice !== undefined
-      ? {
-          pricePerNight: {
-            ...(params.minPrice !== undefined ? { gte: params.minPrice } : {}),
-            ...(params.maxPrice !== undefined ? { lte: params.maxPrice } : {}),
-          },
-        }
-      : {}),
-  };
+  const display = params.display ?? DEFAULT_DISPLAY;
+  const range = params.checkIn && params.checkOut ? { checkIn: params.checkIn, checkOut: params.checkOut } : null;
   const props = await db.property.findMany({
     where: {
       status: "PUBLISHED",
       ...(params.city ? { OR: [{ city: { contains: params.city } }, { country: { contains: params.city } }] } : {}),
       ...(params.type ? { type: params.type } : {}),
       ...(amenityFilter.length ? { AND: amenityFilter } : {}),
-      roomTypes: { some: { maxGuests: { gte: guests }, ...rateFilter } },
+      roomTypes: { some: { maxGuests: { gte: guests } } },
     },
     include: {
       media: COVER_IMAGE,
       roomTypes: {
-        where: { maxGuests: { gte: guests }, ...rateFilter },
+        where: { maxGuests: { gte: guests } },
         select: { id: true, pricePerNight: true },
       },
       reviews: { select: { rating: true } },
@@ -78,17 +78,36 @@ export async function searchProperties(params: SearchParams): Promise<SearchResu
     orderBy: { createdAt: "desc" },
   });
 
-  const range = params.checkIn && params.checkOut ? { checkIn: params.checkIn, checkOut: params.checkOut } : null;
   const nights = range ? nightsBetween(range.checkIn, range.checkOut) : 0;
-  const available = range
-    ? await availableRoomTypeIds(props.flatMap((p) => p.roomTypes.map((r) => r.id)), range)
-    : null;
+  const roomIds = props.flatMap((p) => p.roomTypes.map((r) => r.id));
+  const allRooms = props.flatMap((p) => p.roomTypes);
+  const [available, overrides, starting] = range
+    ? await Promise.all([availableRoomTypeIds(roomIds, range), loadOverrides(roomIds, range.checkIn, range.checkOut), null])
+    : [null, null, await startingPrices(allRooms)];
+
+  /**
+   * A room's price for this search: with dates, the stay's average nightly price (null if any night
+   * has no price, so it can't be booked); without, its "from" price (null if it has no price yet).
+   */
+  const nightlyPrice = (r: { id: string; pricePerNight: number | null }): number | null => {
+    if (!range || !overrides) return starting!.get(r.id) ?? null;
+    const card = { base: r.pricePerNight, overrides: overrides.get(r.id) };
+    if (unpricedNights(card, range.checkIn, range.checkOut).length > 0) return null;
+    return roundToWhole(calculatePrice(card, range.checkIn, range.checkOut).subtotal / nights);
+  };
+  /** The room's price, shown in the guest's currency, is within the price filter. */
+  const inPriceRange = (price: number, listed: string) => {
+    const shown = convertMinor(price, listed, display.currency, display.rates.perUsd) ?? price;
+    return (params.minPrice === undefined || shown >= params.minPrice) && (params.maxPrice === undefined || shown <= params.maxPrice);
+  };
 
   const results: SearchResult[] = [];
   for (const p of props) {
     if (range && nights < p.minNights) continue;
-    const rooms = available ? p.roomTypes.filter((r) => available.has(r.id)) : p.roomTypes;
-    if (rooms.length === 0) continue;
+    const prices = (available ? p.roomTypes.filter((r) => available.has(r.id)) : p.roomTypes)
+      .map(nightlyPrice)
+      .filter((price): price is number => price !== null && inPriceRange(price, p.currency));
+    if (prices.length === 0) continue;
     const ratingCount = p.reviews.length;
     results.push({
       id: p.id,
@@ -100,7 +119,7 @@ export async function searchProperties(params: SearchParams): Promise<SearchResu
       lat: p.lat,
       lng: p.lng,
       coverUrl: p.media[0]?.url ?? null,
-      fromPrice: Math.min(...rooms.map((r) => r.pricePerNight)),
+      fromPrice: Math.min(...prices),
       rating: ratingCount ? p.reviews.reduce((s, r) => s + r.rating, 0) / ratingCount : null,
       ratingCount,
     });
@@ -162,17 +181,39 @@ export function parseFilters(sp: Record<string, string | string[] | undefined>):
 }
 
 /**
- * Cheapest and priciest room-type rate across published listings, in minor units — the bounds
+ * Cheapest and priciest room-type rate across published listings, in minor units of the
+ * `display` currency — the bounds
  * of the price slider. Falls back to a sane range when there is nothing published yet.
  */
-export async function priceBounds(): Promise<{ min: number; max: number }> {
-  const agg = await db.roomType.aggregate({
-    where: { property: { status: "PUBLISHED" } },
-    _min: { pricePerNight: true },
-    _max: { pricePerNight: true },
-  });
-  const min = agg._min.pricePerNight ?? 0;
-  const max = agg._max.pricePerNight ?? 100000;
+export async function priceBounds(display: DisplayMoney = DEFAULT_DISPLAY): Promise<{ min: number; max: number }> {
+  // Per listing currency: the range of default prices and of per-date prices from today on, each
+  // converted into the display currency.
+  const today = toUtcDay(new Date());
+  const aggs = await Promise.all(
+    CURRENCIES.map(async (c) => {
+      const [defaults, dated] = await Promise.all([
+        db.roomType.aggregate({
+          where: { property: { status: "PUBLISHED", currency: c } },
+          _min: { pricePerNight: true },
+          _max: { pricePerNight: true },
+        }),
+        db.nightlyRate.aggregate({
+          where: { date: { gte: today }, roomType: { property: { status: "PUBLISHED", currency: c } } },
+          _min: { price: true },
+          _max: { price: true },
+        }),
+      ]);
+      const values = [defaults._min.pricePerNight, defaults._max.pricePerNight, dated._min.price, dated._max.price].filter(
+        (v): v is number => v !== null,
+      );
+      if (!values.length) return null;
+      const conv = (v: number) => convertMinor(v, c, display.currency, display.rates.perUsd)!;
+      return [conv(Math.min(...values)), conv(Math.max(...values))];
+    }),
+  );
+  const found = aggs.filter((a): a is number[] => a !== null);
+  const min = found.length ? Math.min(...found.map((a) => a[0])) : 0;
+  const max = found.length ? Math.max(...found.map((a) => a[1])) : 100000;
   // Round outwards to whole currency units so the slider ends on tidy numbers.
   return { min: Math.floor(min / 100) * 100, max: Math.max(Math.ceil(max / 100) * 100, min + 100) };
 }

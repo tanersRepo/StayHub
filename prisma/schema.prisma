@@ -149,7 +149,9 @@ model RoomType {
   propertyId    String
   name          String
   description   String @default("")
-  pricePerNight Int // minor units, in the property currency
+  /// Default nightly price (minor units, property currency) for dates without their own NightlyRate.
+  /// Null = no default: only dates the host priced in the calendar can be booked.
+  pricePerNight Int?
   maxGuests     Int    @default(2)
   bedrooms      Int    @default(1)
   beds          Int    @default(1)
@@ -161,6 +163,7 @@ model RoomType {
   blockedDates BlockedDate[]
   bookings     Booking[]
   media        PropertyMedia[]
+  nightlyRates NightlyRate[]
 
   @@index([propertyId])
 }
@@ -187,7 +190,10 @@ model Booking {
   checkOut    DateTime
   guests      Int
   nights      Int
-  totalAmount Int // minor units
+  totalAmount Int // minor units, what the guest is charged
+  /// Price breakdown at booking time (minor units). Null on bookings made before these were stored.
+  subtotalAmount Int?
+  discountAmount Int?
   status      String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | COMPLETED
   createdAt   DateTime @default(now())
 
@@ -227,4 +233,19 @@ model Review {
   author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
+}
+
+/**
+ * Host-set price for one night of a room type, overriding RoomType.pricePerNight (the base
+ * price). `date` is the night, as UTC midnight. Nights without a row use the base price.
+ */
+model NightlyRate {
+  id         String   @id @default(cuid())
+  roomTypeId String
+  date       DateTime
+  price      Int // minor units, whole currency units, in the property currency
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([roomTypeId, date])
 }
