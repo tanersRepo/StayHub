@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BookingWidget } from "@/components/booking-widget";
 import { PropertyLocation } from "@/components/property-location";
+import { DistanceFinder } from "@/components/distance-finder";
 import { PropertyGallery } from "@/components/property-gallery";
 import { RoomPhotos } from "@/components/room-photos";
 import { LightboxStateProvider } from "@/components/lightbox-state";
@@ -96,18 +97,21 @@ export default async function PropertyPage({ params, searchParams }: PageProps<"
           className={hasLocation ? "lg:col-span-3" : "lg:col-span-4"}
         />
         {hasLocation && (
-          <PropertyLocation
-            pin={{
-              id: p.id,
-              title: p.title,
-              lat: p.lat!,
-              lng: p.lng!,
-              fromPrice: fromPrice === null ? null : toDisplay(fromPrice, p.currency, display).amount,
-              currency: fromPrice === null ? p.currency : toDisplay(fromPrice, p.currency, display).currency,
-            }}
-            address={`${p.address}, ${p.city}, ${p.country}`}
-            className="aspect-[4/3] lg:aspect-auto"
-          />
+          <div className="flex flex-col gap-2">
+            <PropertyLocation
+              pin={{
+                id: p.id,
+                title: p.title,
+                lat: p.lat!,
+                lng: p.lng!,
+                fromPrice: fromPrice === null ? null : toDisplay(fromPrice, p.currency, display).amount,
+                currency: fromPrice === null ? p.currency : toDisplay(fromPrice, p.currency, display).currency,
+              }}
+              address={`${p.address}, ${p.city}, ${p.country}`}
+              className="aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1"
+            />
+            <DistanceFinder propertyId={p.id} title={p.title} imperial={p.country === "United States"} />
+          </div>
         )}
       </div>
 
