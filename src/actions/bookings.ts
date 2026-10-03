@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { checkAvailability, toUtcDay } from "@/lib/availability";
-import { calculatePrice, nightsBetween } from "@/lib/pricing";
+import { calculatePrice, nightsBetween, unpricedNights } from "@/lib/pricing";
+import { rateCardFor } from "@/lib/rates";
 import { parseStayRange } from "@/lib/search";
 import { createBookingSchema, reviewSchema, type CreateBookingInput, type ReviewInput } from "@/lib/validators/booking";
 
@@ -13,7 +14,8 @@ export type BookingResult = { error?: string; success?: boolean };
 
 /**
  * Creates a PENDING booking. Availability is re-checked inside the transaction so two guests
- * cannot both grab the last unit. Price is computed server-side from the room rate + property rules.
+ * cannot both grab the last unit. Price is computed server-side from the room's per-night prices
+ * (base price + host overrides) and the property's discount rules, and its breakdown is stored.
  */
 export async function createBooking(input: CreateBookingInput): Promise<BookingResult> {
   const user = await requireUser();
@@ -35,7 +37,11 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
     return { error: `Minimum stay is ${roomType.property.minNights} nights` };
   }
 
-  const price = calculatePrice(roomType.pricePerNight, range.checkIn, range.checkOut, roomType.property.pricingRules);
+  const rates = await rateCardFor(roomType, range.checkIn, range.checkOut);
+  if (unpricedNights(rates, range.checkIn, range.checkOut).length > 0) {
+    return { error: "Some of these nights aren't available. Pick different dates." };
+  }
+  const price = calculatePrice(rates, range.checkIn, range.checkOut, roomType.property.pricingRules);
 
   let bookingId: string;
   try {
@@ -52,6 +58,8 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
           guests: parsed.data.guests,
           nights,
           totalAmount: price.total,
+          subtotalAmount: price.subtotal,
+          discountAmount: price.discount,
           status: "PENDING",
         },
       });

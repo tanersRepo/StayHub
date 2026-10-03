@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/lib/currency";
 
 export const PROPERTY_TYPES = ["HOTEL", "APARTMENT", "HOUSE", "ROOM"] as const;
 
@@ -22,7 +23,7 @@ export const propertyBasicsSchema = z.object({
   address: z.string().trim().min(3).max(200),
   city: z.string().trim().min(2).max(80),
   country: z.string().trim().min(2).max(80),
-  currency: z.string().length(3).default("USD"),
+  currency: z.enum(CURRENCIES, { message: "Choose USD or EUR" }).default("USD"),
   checkInTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").default("15:00"),
   checkOutTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").default("11:00"),
   amenities: z.array(z.enum(AMENITIES)).default([]),
@@ -32,8 +33,6 @@ export type PropertyBasicsInput = z.infer<typeof propertyBasicsSchema>;
 export const roomTypeSchema = z.object({
   name: z.string().trim().min(2).max(80),
   description: z.string().trim().max(1000).default(""),
-  /** Major units in the form (e.g. 95.00); converted to cents in the action. */
-  price: z.coerce.number().positive("Price must be positive").max(100000),
   maxGuests: z.coerce.number().int().min(1).max(30),
   bedrooms: z.coerce.number().int().min(0).max(30),
   beds: z.coerce.number().int().min(1).max(60),

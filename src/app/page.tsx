@@ -1,14 +1,21 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 import { SearchBar } from "@/components/search-bar";
 import { PropertyCard } from "@/components/property-card";
 import { listPublishedProperties } from "@/lib/properties";
+import { defaultWeekendStay } from "@/lib/dates";
+import { getDisplayMoney } from "@/lib/currency-server";
 import { Button } from "@/components/ui/button";
 
 const CITIES = ["Lisbon", "Barcelona", "Amsterdam"];
 
 export default async function Home() {
-  const featured = await listPublishedProperties({ take: 8 });
+  // Render per request: the suggested dates are relative to today, so a build-time prerender
+  // would freeze them.
+  await connection();
+  const suggestedStay = defaultWeekendStay(new Date());
+  const [featured, display] = await Promise.all([listPublishedProperties({ take: 8 }), getDisplayMoney()]);
   return (
     <>
       <section className="bg-gradient-to-b from-primary/10 to-background">
@@ -19,7 +26,7 @@ export default async function Home() {
           </p>
           <div className="mx-auto mt-8 max-w-3xl">
             <Suspense>
-              <SearchBar />
+              <SearchBar defaultRange={suggestedStay} />
             </Suspense>
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -44,7 +51,7 @@ export default async function Home() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {featured.map((p) => (
-            <PropertyCard key={p.id} p={p} />
+            <PropertyCard key={p.id} p={p} display={display} />
           ))}
         </div>
       </section>

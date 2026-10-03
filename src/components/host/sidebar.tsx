@@ -9,7 +9,7 @@ const LINKS = [
   { href: "/host", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/host/properties", label: "Properties", icon: Home },
   { href: "/host/bookings", label: "Bookings", icon: ClipboardList },
-  { href: "/host/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/host/calendar", label: "Calendar & prices", icon: CalendarDays },
 ];
 
 export function HostSidebar() {

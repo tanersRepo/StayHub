@@ -3,8 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireHost } from "@/lib/auth";
-import { assertOwnsProperty } from "@/lib/host";
-import { toUtcDay } from "@/lib/availability";
 import type { ActionResult } from "@/actions/properties";
 
 async function ownedBooking(bookingId: string) {
@@ -34,20 +32,5 @@ export async function cancelBookingAsHost(bookingId: string): Promise<ActionResu
   ]);
   revalidatePath("/host/bookings");
   revalidatePath("/host");
-  return { success: true };
-}
-
-/** Toggle a blocked night for a room type. `dateISO` is yyyy-mm-dd. */
-export async function toggleBlockedDate(roomTypeId: string, dateISO: string): Promise<ActionResult> {
-  const rt = await db.roomType.findUnique({ where: { id: roomTypeId }, select: { propertyId: true } });
-  if (!rt) return { error: "Room type not found" };
-  await assertOwnsProperty(rt.propertyId);
-  const date = toUtcDay(new Date(`${dateISO}T00:00:00Z`));
-  if (Number.isNaN(date.getTime())) return { error: "Invalid date" };
-
-  const existing = await db.blockedDate.findUnique({ where: { roomTypeId_date: { roomTypeId, date } } });
-  if (existing) await db.blockedDate.delete({ where: { id: existing.id } });
-  else await db.blockedDate.create({ data: { roomTypeId, date } });
-  revalidatePath("/host/calendar");
   return { success: true };
 }

@@ -6,19 +6,17 @@ import { assertOwnsProperty } from "@/lib/host";
 import { roomTypeSchema, type RoomTypeInput } from "@/lib/validators/property";
 import type { ActionResult } from "@/actions/properties";
 
-function toData(input: RoomTypeInput) {
-  const { price, ...rest } = input;
-  return { ...rest, pricePerNight: Math.round(price * 100) };
-}
+// Prices aren't part of a room's details: hosts set them per date in the pricing calendar.
+const toData = (input: RoomTypeInput) => input;
 
 export async function createRoomType(propertyId: string, input: RoomTypeInput): Promise<ActionResult> {
   await assertOwnsProperty(propertyId);
   const parsed = roomTypeSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const count = await db.roomType.count({ where: { propertyId } });
-  await db.roomType.create({ data: { ...toData(parsed.data), propertyId, order: count } });
+  const rt = await db.roomType.create({ data: { ...toData(parsed.data), propertyId, order: count } });
   revalidatePath(`/host/properties/${propertyId}/edit`);
-  return { success: true };
+  return { success: true, id: rt.id };
 }
 
 export async function updateRoomType(roomTypeId: string, input: RoomTypeInput): Promise<ActionResult> {

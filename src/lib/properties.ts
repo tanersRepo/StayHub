@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { startingPrices } from "@/lib/rates";
 import { COVER_IMAGE } from "@/lib/media-query";
 
 /** Card-level data for listing grids: cover image, min price, rating summary. */
@@ -10,13 +11,18 @@ export async function listPublishedProperties(opts: { city?: string; take?: numb
     },
     include: {
       media: COVER_IMAGE,
-      roomTypes: { orderBy: { pricePerNight: "asc" }, take: 1, select: { pricePerNight: true } },
+      roomTypes: { select: { id: true, pricePerNight: true } },
       reviews: { select: { rating: true } },
     },
     orderBy: { createdAt: "desc" },
     take: opts.take,
   });
-  return props.map(toCard);
+  // "From" price across a listing's rooms: default prices and any per-date prices from today on.
+  const from = await startingPrices(props.flatMap((p) => p.roomTypes));
+  return props.map((p) => {
+    const prices = p.roomTypes.map((r) => from.get(r.id)).filter((x): x is number => x != null);
+    return toCard({ ...p, fromPrice: prices.length ? Math.min(...prices) : null });
+  });
 }
 
 export interface PropertyCardData {
@@ -40,7 +46,7 @@ function toCard(p: {
   country: string;
   currency: string;
   media: { url: string }[];
-  roomTypes: { pricePerNight: number }[];
+  fromPrice: number | null;
   reviews: { rating: number }[];
 }): PropertyCardData {
   const ratingCount = p.reviews.length;
@@ -53,7 +59,7 @@ function toCard(p: {
     country: p.country,
     currency: p.currency,
     coverUrl: p.media[0]?.url ?? null,
-    fromPrice: p.roomTypes[0]?.pricePerNight ?? null,
+    fromPrice: p.fromPrice,
     rating,
     ratingCount,
   };

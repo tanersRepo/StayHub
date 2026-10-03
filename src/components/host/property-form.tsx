@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AMENITIES, PROPERTY_TYPES, type PropertyBasicsInput } from "@/lib/validators/property";
 import { AMENITY_LABEL, PROPERTY_TYPE_LABEL } from "@/lib/labels";
+import { CURRENCIES, CURRENCY_LABEL } from "@/lib/currency";
 import type { ActionResult } from "@/actions/properties";
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
 export function PropertyForm({ initial, submitLabel, onSubmit }: Props) {
   const [pending, start] = useTransition();
   const [type, setType] = useState<PropertyBasicsInput["type"]>(initial?.type ?? "APARTMENT");
+  const [currency, setCurrency] = useState<string>(initial?.currency ?? "USD");
   const [amenities, setAmenities] = useState<string[]>(initial?.amenities ?? []);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -34,7 +36,7 @@ export function PropertyForm({ initial, submitLabel, onSubmit }: Props) {
       address: String(fd.get("address")),
       city: String(fd.get("city")),
       country: String(fd.get("country")),
-      currency: String(fd.get("currency") || "USD").toUpperCase(),
+      currency: currency as PropertyBasicsInput["currency"],
       checkInTime: String(fd.get("checkInTime") || "15:00"),
       checkOutTime: String(fd.get("checkOutTime") || "11:00"),
       amenities: amenities as PropertyBasicsInput["amenities"],
@@ -83,7 +85,18 @@ export function PropertyForm({ initial, submitLabel, onSubmit }: Props) {
           <Input name="country" defaultValue={initial?.country} required />
         </Field>
         <Field label="Currency">
-          <Input name="currency" defaultValue={initial?.currency ?? "USD"} maxLength={3} />
+          <Select value={currency} onValueChange={setCurrency}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c} — {CURRENCY_LABEL[c].name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       </div>
 
