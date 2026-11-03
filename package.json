@@ -15,7 +15,8 @@
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
-    "db:seed:featured": "tsx prisma/add-featured.ts"
+    "db:seed:featured": "tsx prisma/add-featured.ts",
+    "tunnel": "npx --yes cloudflared tunnel --no-autoupdate --url http://localhost:3000"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
