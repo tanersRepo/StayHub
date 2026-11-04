@@ -8,7 +8,7 @@ import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import type { PropertyCardData } from "@/lib/properties";
 
 interface Props {
-  p: PropertyCardData;
+  p: PropertyCardData & { nearbyKm?: number | null };
   /** Currency the guest views prices in; the listing's own price is converted to it. */
   display: DisplayMoney;
   hrefSuffix?: string;
@@ -31,6 +31,9 @@ export function PropertyCard({ p, display, hrefSuffix = "" }: Props) {
           <Badge variant="secondary" className="absolute left-2 top-2">
             {PROPERTY_TYPE_LABEL[p.type] ?? p.type}
           </Badge>
+          {p.nearbyKm != null && (
+            <Badge className="absolute right-2 top-2">Nearby</Badge>
+          )}
         </div>
         <div className="space-y-1 p-4">
           <div className="flex items-start justify-between gap-2">
@@ -45,6 +48,7 @@ export function PropertyCard({ p, display, hrefSuffix = "" }: Props) {
           </div>
           <p className="text-sm text-muted-foreground">
             {p.city}, {p.country}
+            {p.nearbyKm != null && <span> · {p.nearbyKm < 1 ? "<1" : Math.round(p.nearbyKm)} km away</span>}
           </p>
           {p.fromPrice !== null && (
             <p className="pt-1 text-sm">

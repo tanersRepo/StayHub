@@ -15,6 +15,23 @@ export function straightLineMeters(a: LatLng, b: LatLng): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+/**
+ * Items within `km` of `center`, nearest first, each with its distance. Items without a position
+ * are skipped.
+ */
+export function withinRadius<T extends { lat: number | null; lng: number | null }>(
+  items: T[],
+  center: LatLng,
+  km: number,
+): (T & { km: number })[] {
+  return items
+    .flatMap((it) =>
+      it.lat === null || it.lng === null ? [] : [{ ...it, km: straightLineMeters(center, { lat: it.lat, lng: it.lng }) / 1000 }],
+    )
+    .filter((it) => it.km <= km)
+    .sort((a, b) => a.km - b.km);
+}
+
 /** "850 m", "5.4 km (3.4 mi)", "120 km (75 mi)". Miles are added for US listings. */
 export function formatDistance(meters: number, withMiles = false): string {
   if (meters < 1000) return `${Math.round(meters / 10) * 10} m`;

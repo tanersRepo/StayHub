@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { connection } from "next/server";
 import { SearchBar } from "@/components/search-bar";
 import { PropertyCard } from "@/components/property-card";
@@ -7,6 +8,10 @@ import { listPublishedProperties } from "@/lib/properties";
 import { defaultWeekendStay } from "@/lib/dates";
 import { getDisplayMoney } from "@/lib/currency-server";
 import { Button } from "@/components/ui/button";
+
+// Greek seaside village (Oia, Santorini) — Unsplash, free to use: https://unsplash.com/license
+const HERO_IMAGE =
+  "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=2000&q=80&auto=format&fit=crop";
 
 const CITIES = ["Lisbon", "Barcelona", "Amsterdam"];
 
@@ -18,10 +23,12 @@ export default async function Home() {
   const [featured, display] = await Promise.all([listPublishedProperties({ take: 8 }), getDisplayMoney()]);
   return (
     <>
-      <section className="bg-gradient-to-b from-primary/10 to-background">
-        <div className="mx-auto max-w-5xl px-4 pb-16 pt-20 text-center">
+      <section className="relative isolate overflow-hidden text-white">
+        <Image src={HERO_IMAGE} alt="" fill priority sizes="100vw" className="-z-10 object-cover" />
+        <div className="absolute inset-0 -z-10 bg-black/40" />
+        <div className="mx-auto max-w-5xl px-4 pb-24 pt-28 text-center">
           <h1 className="text-4xl font-bold tracking-tight md:text-5xl">Find your next stay</h1>
-          <p className="mt-3 text-lg text-muted-foreground">
+          <p className="mt-3 text-lg text-white/90">
             Hotels, apartments and homes — book in minutes.
           </p>
           <div className="mx-auto mt-8 max-w-3xl">
@@ -31,7 +38,7 @@ export default async function Home() {
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             {CITIES.map((c) => (
-              <Button key={c} variant="outline" size="sm" className="rounded-full" asChild>
+              <Button key={c} variant="outline" size="sm" className="rounded-full border-white/40 bg-white/15 text-white hover:bg-white/25 hover:text-white" asChild>
                 <Link href={`/search?city=${c}`}>{c}</Link>
               </Button>
             ))}

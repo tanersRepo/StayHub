@@ -29,7 +29,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
     });
 
   const summary = [
-    city ? `in ${city}` : "everywhere",
+    city ? `in ${city}${results.some((r) => r.nearbyKm !== null) ? " and nearby" : ""}` : "everywhere",
     range ? `${formatStay(range.checkIn, "MMM d")} – ${formatStay(range.checkOut, "MMM d")}` : "any dates",
     `${guests} guest${guests === 1 ? "" : "s"}`,
   ].join(" · ");
@@ -64,11 +64,6 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
             <h1 className="text-xl font-semibold">
               {results.length} {results.length === 1 ? "stay" : "stays"} {summary}
             </h1>
-            {range && (
-              <p className="text-sm text-muted-foreground">
-                Only showing places with a free room for every night of your stay.
-              </p>
-            )}
           </div>
 
           {results.length === 0 ? (

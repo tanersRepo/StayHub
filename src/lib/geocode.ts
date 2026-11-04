@@ -54,6 +54,37 @@ export async function searchPlace(
   }
 }
 
+/** Typed place → candidate coordinates, remembered for a day (each distinct query hits Nominatim once). */
+type Place = { lat: number; lng: number; label: string };
+const placeCache = new Map<string, { at: number; hits: Place[] }>();
+const PLACE_CACHE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Places a guest's search text could mean, best match first ("Cambridge" → England, then
+ * Massachusetts…), with no location bias. The caller picks the one that has listings nearby.
+ * Returns [] when nothing matches or on failure (failures aren't cached).
+ */
+export async function geocodePlaces(query: string): Promise<Place[]> {
+  const key = query.trim().toLowerCase();
+  if (!key) return [];
+  const cached = placeCache.get(key);
+  if (cached && Date.now() - cached.at < PLACE_CACHE_MS) return cached.hits;
+  const params = new URLSearchParams({ format: "jsonv2", addressdetails: "1", limit: "5", q: query.trim() });
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: { "User-Agent": "StayHub/0.1 (dev)", "Accept-Language": "en" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { lat: string; lon: string; name?: string; display_name: string; address?: Record<string, string> }[];
+    const hits = data.map((d) => ({ lat: Number(d.lat), lng: Number(d.lon), label: placeLabel(d) }));
+    placeCache.set(key, { at: Date.now(), hits });
+    return hits;
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Short, readable name for a Nominatim result: "Eiffel Tower, Paris, France" rather than its full
  * display_name ("Eiffel Tower, 5, Avenue Anatole France, Quartier du Gros-Caillou, …").

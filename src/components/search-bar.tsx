@@ -52,7 +52,7 @@ export function SearchBar({ className, defaultRange, defaultCity }: SearchBarPro
     <form
       onSubmit={submit}
       className={cn(
-        "flex w-full flex-col gap-2 rounded-2xl border-2 border-[#febb02] bg-background p-2 shadow-lg md:flex-row md:items-center md:rounded-full",
+        "flex w-full flex-col gap-2 rounded-2xl border-2 border-[#febb02] bg-background p-2 text-foreground shadow-lg md:flex-row md:items-center md:rounded-full",
         className,
       )}
     >
