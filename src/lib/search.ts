@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { geocodePlaces } from "@/lib/geocode";
+import { withinRadius } from "@/lib/distance";
 import { COVER_IMAGE } from "@/lib/media-query";
 import { availableRoomTypeIds, toUtcDay } from "@/lib/availability";
 import { calculatePrice, nightsBetween, roundToWhole, unpricedNights } from "@/lib/pricing";
@@ -35,7 +37,12 @@ export interface SearchResult {
   fromPrice: number | null;
   rating: number | null;
   ratingCount: number;
+  /** Distance in km from the searched place when this is a "nearby" match; null for exact matches. */
+  nearbyKm: number | null;
 }
+
+/** Listings this far (km) from the searched place count as nearby. */
+export const NEARBY_RADIUS_KM = 50;
 
 /** Parse yyyy-mm-dd query values into a UTC-midnight stay range, or null when incomplete/invalid. */
 export function parseStayRange(checkIn?: string, checkOut?: string) {
@@ -59,24 +66,56 @@ export async function searchProperties(params: SearchParams): Promise<SearchResu
   const amenityFilter = (params.amenities ?? []).map((a) => ({ amenities: { contains: `"${a}"` } }));
   const display = params.display ?? DEFAULT_DISPLAY;
   const range = params.checkIn && params.checkOut ? { checkIn: params.checkIn, checkOut: params.checkOut } : null;
-  const props = await db.property.findMany({
+  const baseWhere = {
+    status: "PUBLISHED",
+    ...(params.type ? { type: params.type } : {}),
+    ...(amenityFilter.length ? { AND: amenityFilter } : {}),
+    roomTypes: { some: { maxGuests: { gte: guests } } },
+  };
+  const include = {
+    media: COVER_IMAGE,
+    roomTypes: {
+      where: { maxGuests: { gte: guests } },
+      select: { id: true, pricePerNight: true },
+    },
+    reviews: { select: { rating: true } },
+  };
+  const exact = await db.property.findMany({
     where: {
-      status: "PUBLISHED",
+      ...baseWhere,
       ...(params.city ? { OR: [{ city: { contains: params.city } }, { country: { contains: params.city } }] } : {}),
-      ...(params.type ? { type: params.type } : {}),
-      ...(amenityFilter.length ? { AND: amenityFilter } : {}),
-      roomTypes: { some: { maxGuests: { gte: guests } } },
     },
-    include: {
-      media: COVER_IMAGE,
-      roomTypes: {
-        where: { maxGuests: { gte: guests } },
-        select: { id: true, pricePerNight: true },
-      },
-      reviews: { select: { rating: true } },
-    },
+    include,
     orderBy: { createdAt: "desc" },
   });
+
+  // Nearby: geocode what the guest typed and add listings within the radius that the text match
+  // missed ("Cambridge, MA" → Boston, Quincy). A failed lookup just means no nearby extras.
+  const nearbyKmById = new Map<string, number>();
+  let nearby: typeof exact = [];
+  // The text can mean several places ("Cambridge": England or Massachusetts); use the first that
+  // actually has listings nearby.
+  const centers = params.city ? await geocodePlaces(params.city) : [];
+  const deg = NEARBY_RADIUS_KM / 111; // cheap bounding box before the exact distance check
+  for (const center of centers) {
+    const candidates = await db.property.findMany({
+      where: {
+        ...baseWhere,
+        id: { notIn: exact.map((p) => p.id) },
+        lat: { gte: center.lat - deg, lte: center.lat + deg },
+        lng: { gte: center.lng - deg * 2, lte: center.lng + deg * 2 }, // wider: degrees of longitude shrink away from the equator
+      },
+      include,
+    });
+    const close = withinRadius(candidates, center, NEARBY_RADIUS_KM);
+    if (close.length === 0) continue;
+    nearby = close.map(({ km, ...p }) => {
+      nearbyKmById.set(p.id, km);
+      return p as (typeof exact)[number];
+    });
+    break;
+  }
+  const props = [...exact, ...nearby];
 
   const nights = range ? nightsBetween(range.checkIn, range.checkOut) : 0;
   const roomIds = props.flatMap((p) => p.roomTypes.map((r) => r.id));
@@ -122,6 +161,7 @@ export async function searchProperties(params: SearchParams): Promise<SearchResu
       fromPrice: Math.min(...prices),
       rating: ratingCount ? p.reviews.reduce((s, r) => s + r.rating, 0) / ratingCount : null,
       ratingCount,
+      nearbyKm: nearbyKmById.get(p.id) ?? null,
     });
   }
   return results;

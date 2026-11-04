@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDistance, formatDuration, googleDirectionsUrl, straightLineMeters } from "../distance";
+import { formatDistance, formatDuration, googleDirectionsUrl, straightLineMeters, withinRadius } from "../distance";
 
 describe("straightLineMeters", () => {
   it("is zero for the same point", () => {
@@ -85,5 +85,20 @@ describe("photonSuggestion", () => {
   it("skips results with nothing to show", async () => {
     const { photonSuggestion } = await import("../geocode");
     expect(photonSuggestion({ geometry: { coordinates: [0, 0] }, properties: { country: "France" } })).toBeNull();
+  });
+});
+
+describe("withinRadius", () => {
+  const cambridge = { lat: 42.3736, lng: -71.1097 };
+  const items = [
+    { id: "lisbon", lat: 38.72, lng: -9.14 },
+    { id: "quincy", lat: 42.2529, lng: -71.0023 },
+    { id: "boston", lat: 42.3601, lng: -71.0589 },
+    { id: "nowhere", lat: null, lng: null },
+  ];
+  it("keeps nearby items, nearest first, and drops far or unlocated ones", () => {
+    const r = withinRadius(items, cambridge, 50);
+    expect(r.map((x) => x.id)).toEqual(["boston", "quincy"]);
+    expect(r[0].km).toBeLessThan(6);
   });
 });
